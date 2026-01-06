@@ -1,0 +1,48 @@
+name: Morphe Patch Watcher
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check latest Morphe patch (stable only)
+        id: patchcheck
+        run: |
+          set -e
+
+          # Fetch latest STABLE patch (ignore prerelease)
+          LATEST=$(curl -s https://api.github.com/repos/MorpheApp/morphe-patches/releases \
+            | jq -r '[.[] | select(.prerelease == false)][0].tag_name' \
+            | sed 's/^v//')
+
+          CURRENT=$(cat morphe-patches-version.txt 2>/dev/null || echo "none")
+
+          echo "Latest patch  : [$LATEST]"
+          echo "Current patch : [$CURRENT]"
+
+          if [ "$LATEST" = "$CURRENT" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No new Morphe patch detected. Exiting."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "New Morphe patch detected."
+          fi
+
+      - name: Trigger build workflow
+        if: steps.patchcheck.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run build.yml
