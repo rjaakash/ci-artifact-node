@@ -1,0 +1,123 @@
+name: Build Morphe Apps
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ---------------- Checkout ----------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ---------------- Java ----------------
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # ---------------- Restore keystore ----------------
+      - name: Restore keystore from GitHub Secrets
+        run: |
+          echo "${{ secrets.MORPHE_KEYSTORE_B64 }}" | base64 -d > morphe-release.bks
+          ls -lh morphe-release.bks
+
+      # ---------------- Resolve latest stable versions ----------------
+      - name: Resolve Morphe versions (stable only)
+        run: |
+          PATCH_VERSION=$(curl -s https://api.github.com/repos/MorpheApp/morphe-patches/releases \
+            | jq -r '[.[] | select(.prerelease == false)][0].tag_name' \
+            | sed 's/^v//')
+
+          CLI_VERSION=$(curl -s https://api.github.com/repos/MorpheApp/morphe-cli/releases \
+            | jq -r '[.[] | select(.prerelease == false)][0].tag_name' \
+            | sed 's/^v//')
+
+          echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
+          echo "CLI_VERSION=$CLI_VERSION" >> $GITHUB_ENV
+
+      # ---------------- Load YouTube & Music versions ----------------
+      - name: Load YouTube & Music versions
+        run: |
+          while IFS='=' read -r key value; do
+            echo "$key=$value" >> $GITHUB_ENV
+          done < versions.env
+
+      # ---------------- Build ----------------
+      - name: Run build script
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.MORPHE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MORPHE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.MORPHE_KEY_PASSWORD }}
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      # ---------------- Generate release notes ----------------
+      - name: Generate release notes
+        run: |
+          DATE_TAG=$(date +'%Y%m%d-%H%M')
+          PATCH_TAG="v${PATCH_VERSION}"
+
+          CHANGELOG=$(curl -s \
+            https://api.github.com/repos/MorpheApp/morphe-patches/releases/tags/${PATCH_TAG} \
+            | jq -r '.body')
+
+          cat <<EOF > release.md
+          ## Versions
+
+          - YouTube: ${YOUTUBE_VERSION}
+          - Music: ${MUSIC_VERSION}
+          - Morphe Patch: ${PATCH_VERSION}
+          - Morphe CLI: ${CLI_VERSION}
+
+          ## Morphe Patch Changelog (${PATCH_TAG})
+
+          ${CHANGELOG}
+          EOF
+
+          echo "RELEASE_TAG=${DATE_TAG}" >> $GITHUB_ENV
+          echo "RELEASE_NAME=${DATE_TAG}" >> $GITHUB_ENV
+
+      # ---------------- Rename APKs (ASSET FIX) ----------------
+      - name: Rename APK assets
+        run: |
+          mv build/YouTube-Morphe.apk build/YouTube.apk
+          mv build/Music-Morphe.apk build/Music.apk
+
+      # ---------------- Create GitHub Release ----------------
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_NAME }}
+          body_path: release.md
+          files: |
+            build/YouTube.apk
+            build/Music.apk
+
+      # ---------------- Commit versions ONLY after release ----------------
+      - name: Update version files after successful release
+        if: success()
+        run: |
+          echo "$PATCH_VERSION" > morphe-patches-version.txt
+          echo "$CLI_VERSION" > morphe-cli-version.txt
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add morphe-patches-version.txt morphe-cli-version.txt
+
+          if git diff --cached --quiet; then
+            echo "No version changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Update Morphe patch and CLI versions after release"
+          git push
