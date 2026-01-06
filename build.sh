@@ -12,10 +12,10 @@ echo "YouTube version: $YOUTUBE_VERSION"
 echo "Music version: $MUSIC_VERSION"
 
 # -------------------------------------------------
-# Load Morphe versions (AUTO)
+# Load Morphe versions (FROM WORKFLOW ENV – FIXED)
 # -------------------------------------------------
-PATCH_VERSION="$(cat morphe-patches-version.txt)"
-CLI_VERSION="$(cat morphe-cli-version.txt)"
+PATCH_VERSION="${PATCH_VERSION:?PATCH_VERSION not set}"
+CLI_VERSION="${CLI_VERSION:?CLI_VERSION not set}"
 
 echo "Morphe patch version: $PATCH_VERSION"
 echo "Morphe CLI version: $CLI_VERSION"
