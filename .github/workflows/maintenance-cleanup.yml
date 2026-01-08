@@ -2,7 +2,7 @@ name: Repository Maintenance Cleanup
 
 on:
   schedule:
-    - cron: "0 0 * * *"   # Runs daily at 00:00 UTC
+    - cron: "30 18 * * *"
   workflow_dispatch:
 
 permissions:
@@ -14,29 +14,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # -------------------------------------------------
-      # Release cleanup
-      # Keeps last 3 stable releases
-      # Deletes all drafts, prereleases, and their tags
-      # -------------------------------------------------
       - name: Cleanup old releases
         uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
           keep_latest: 3
-          delete_prerelease: true
-          delete_draft: true
+          delete_prerelease_only: true
           delete_tags: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # -------------------------------------------------
-      # Workflow run cleanup
-      # Keeps last 7 workflow runs
-      # -------------------------------------------------
       - name: Cleanup old workflow runs
         uses: Mattraks/delete-workflow-runs@v2
         with:
           retain_days: 0
-          keep_minimum_runs: 7
+          keep_minimum_runs: 1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
