@@ -2,6 +2,7 @@ name: Repository Maintenance Cleanup
 
 on:
   schedule:
+    # Runs daily at 00:00 Indian Standard Time (18:30 UTC)
     - cron: "30 18 * * *"
   workflow_dispatch:
 
@@ -14,19 +15,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ----------------------------------------
+      # Release cleanup
+      # Keeps only the latest 3 releases
+      # Deletes all older releases and their tags
+      # ----------------------------------------
       - name: Cleanup old releases
         uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
           keep_latest: 3
-          delete_prerelease_only: true
           delete_tags: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # ----------------------------------------
+      # Workflow runs cleanup
+      # Keeps only the latest 24 runs overall
+      # Deletes all older workflow runs
+      # ----------------------------------------
       - name: Cleanup old workflow runs
-        uses: Mattraks/delete-workflow-runs@v2
-        with:
-          retain_days: 0
-          keep_minimum_runs: 1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run list -L300 --json databaseId \
+            -q '.[].databaseId' \
+          | tail -n +25 \
+          | xargs -r -I ID gh api \
+            repos/$GITHUB_REPOSITORY/actions/runs/ID \
+            -X DELETE
