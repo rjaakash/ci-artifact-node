@@ -33,7 +33,7 @@ jobs:
 
       # ----------------------------------------
       # Workflow runs cleanup
-      # Keeps only the latest 25 runs overall
+      # Keeps only the latest 1 run overall
       # Deletes all older workflow runs
       # ----------------------------------------
       - name: Cleanup old workflow runs
@@ -42,7 +42,7 @@ jobs:
         run: |
           gh run list -L300 --json databaseId \
             -q '.[].databaseId' \
-          | tail -n +26 \
+          | tail -n +2 \
           | xargs -r -I ID gh api \
             repos/$GITHUB_REPOSITORY/actions/runs/ID \
             -X DELETE
