@@ -62,7 +62,7 @@ jobs:
       # ---------------- Generate release notes ----------------
       - name: Generate release notes
         run: |
-          DATE_TAG=$(date +'%Y%m%d-%H%M')
+          DATE_TAG=$(date +'%Y-%m-%d')
           PATCH_TAG="v${PATCH_VERSION}"
 
           CHANGELOG=$(curl -s \
