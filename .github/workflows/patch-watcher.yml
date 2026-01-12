@@ -2,8 +2,8 @@ name: Morphe Patch Watcher
 
 on:
   schedule:
-    # Runs daily at 00:00 UTC
-    - cron: "0 0 * * *"
+    # Runs daily at 00:00 Indian Standard Time (18:30 UTC)
+    - cron: "30 18 * * *"
   workflow_dispatch:
 
 permissions:
