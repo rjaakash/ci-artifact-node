@@ -2,7 +2,8 @@ name: Morphe Patch Watcher
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    # Runs daily at 17:35 Indian Standard Time (12:05 UTC)
+    - cron: "5 12 * * *"
   workflow_dispatch:
 
 permissions:
@@ -24,13 +25,20 @@ jobs:
 
           # Fetch latest STABLE patch (ignore prerelease)
           LATEST=$(curl -s https://api.github.com/repos/MorpheApp/morphe-patches/releases \
-            | jq -r '[.[] | select(.prerelease == false)][0].tag_name' \
+            | jq -r '[.[] | select(type=="object") | select(.prerelease == false)][0].tag_name // empty' \
             | sed 's/^v//')
 
           CURRENT=$(cat morphe-patches-version.txt 2>/dev/null || echo "none")
 
           echo "Latest patch  : [$LATEST]"
           echo "Current patch : [$CURRENT]"
+
+          # Safety guard: skip if API returns empty/invalid data
+          if [ -z "$LATEST" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Patch API returned no valid release. Skipping."
+            exit 0
+          fi
 
           if [ "$LATEST" = "$CURRENT" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
