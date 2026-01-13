@@ -1,4 +1,6 @@
+# Signing keys / secrets
 *.keystore
 *.jks
 *.p12
 *.b64
+*.bks
