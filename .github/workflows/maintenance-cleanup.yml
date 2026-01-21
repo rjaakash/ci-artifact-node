@@ -20,20 +20,20 @@ jobs:
 
       # ----------------------------------------
       # Release cleanup
-      # Keeps only the latest 3 releases
+      # Keeps only the latest 10 releases
       # Deletes all older releases and their tags
       # ----------------------------------------
       - name: Cleanup old releases
         uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
-          keep_latest: 3
+          keep_latest: 10
           delete_tags: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ----------------------------------------
       # Workflow runs cleanup
-      # Keeps only the latest 7 runs overall
+      # Keeps only the latest 90 runs overall
       # Deletes all older workflow runs
       # ----------------------------------------
       - name: Cleanup old workflow runs
@@ -42,7 +42,7 @@ jobs:
         run: |
           gh run list -L300 --json databaseId \
             -q '.[].databaseId' \
-          | tail -n +8 \
+          | tail -n +91 \
           | xargs -r -I ID gh api \
             repos/$GITHUB_REPOSITORY/actions/runs/ID \
             -X DELETE
