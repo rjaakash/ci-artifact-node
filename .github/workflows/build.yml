@@ -85,11 +85,11 @@ jobs:
           echo "RELEASE_TAG=${DATE_TAG}" >> $GITHUB_ENV
           echo "RELEASE_NAME=${DATE_TAG}" >> $GITHUB_ENV
 
-      # ---------------- Rename APKs (ASSET FIX) ----------------
+      # ---------------- Rename APKs (VERSIONED ASSETS) ----------------
       - name: Rename APK assets
         run: |
-          mv build/YouTube-Morphe.apk build/YouTube.apk
-          mv build/Music-Morphe.apk build/Music.apk
+          mv build/YouTube-Morphe.apk build/YouTube-v${YOUTUBE_VERSION}-v${PATCH_VERSION}.apk
+          mv build/Music-Morphe.apk build/Music-v${MUSIC_VERSION}-v${PATCH_VERSION}.apk
 
       # ---------------- Create GitHub Release ----------------
       - name: Create GitHub release
@@ -99,8 +99,8 @@ jobs:
           name: ${{ env.RELEASE_NAME }}
           body_path: release.md
           files: |
-            build/YouTube.apk
-            build/Music.apk
+            build/YouTube-v${{ env.YOUTUBE_VERSION }}-v${{ env.PATCH_VERSION }}.apk
+            build/Music-v${{ env.MUSIC_VERSION }}-v${{ env.PATCH_VERSION }}.apk
 
       # ---------------- Commit versions ONLY after release ----------------
       - name: Update version files after successful release
