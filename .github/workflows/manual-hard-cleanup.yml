@@ -1,0 +1,47 @@
+name: Repository Hard Cleanup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ----------------------------------------
+      # HARD release cleanup
+      # Deletes ALL releases and ALL tags
+      # ----------------------------------------
+      - name: Delete all releases and tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Deleting all releases..."
+          gh release list --limit 1000 --json tagName -q '.[].tagName' \
+          | while read -r tag; do
+              echo "Deleting release and tag: $tag"
+              gh release delete "$tag" --yes || true
+              git push origin ":refs/tags/$tag" || true
+            done
+
+      # ----------------------------------------
+      # HARD workflow runs cleanup
+      # Keeps only the latest 1 run overall
+      # ----------------------------------------
+      - name: Delete old workflow runs (keep 1)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run list -L300 --json databaseId \
+            -q '.[].databaseId' \
+          | tail -n +2 \
+          | xargs -r -I ID gh api \
+            repos/$GITHUB_REPOSITORY/actions/runs/ID \
+            -X DELETE
