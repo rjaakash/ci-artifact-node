@@ -23,9 +23,9 @@ echo "Morphe CLI version: $CLI_VERSION"
 # -------------------------------------------------
 # APK URLs (YOU update when needed)
 # -------------------------------------------------
-YOUTUBE_APK_URL="https://archive.org/download/com.google.android.youtube_20.37.48-1556891072_minapi28arm64-v8aarmeabi-v7ax86x8/com.google.android.youtube_20.37.48-1556891072_minAPI28%28arm64-v8a%2Carmeabi-v7a%2Cx86%2Cx86_64%29%28nodpi%29_apkmirror.com.apk"
+YOUTUBE_APK_URL="https://archive.org/download/you-tube-20.40.45/YouTube%2020.40.45.apk"
 
-MUSIC_APK_URL="https://archive.org/download/com.google.android.youtube_20.37.48-1556891072_minapi28arm64-v8aarmeabi-v7ax86x8/com.google.android.apps.youtube.music_8.37.56-83756240_minAPI26%28arm64-v8a%29%28nodpi%29_apkmirror.com.apk"
+MUSIC_APK_URL="https://archive.org/download/you-tube-20.40.45/Music%208.40.54.apk"
 
 # -------------------------------------------------
 # Morphe download URLs
