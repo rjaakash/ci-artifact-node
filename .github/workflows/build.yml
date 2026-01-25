@@ -82,7 +82,8 @@ jobs:
           ${CHANGELOG}
           EOF
 
-          echo "RELEASE_TAG=${DATE_TAG}" >> $GITHUB_ENV
+          # 🔴 ONLY TAG CHANGED HERE
+          echo "RELEASE_TAG=v${PATCH_VERSION}" >> $GITHUB_ENV
           echo "RELEASE_NAME=${DATE_TAG}" >> $GITHUB_ENV
 
       # ---------------- Rename APKs (VERSIONED ASSETS) ----------------
