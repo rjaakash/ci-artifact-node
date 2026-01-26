@@ -82,7 +82,6 @@ jobs:
           ${CHANGELOG}
           EOF
 
-          # 🔴 ONLY TAG CHANGED HERE
           echo "RELEASE_TAG=v${PATCH_VERSION}" >> $GITHUB_ENV
           echo "RELEASE_NAME=${DATE_TAG}" >> $GITHUB_ENV
 
@@ -95,6 +94,8 @@ jobs:
       # ---------------- Create GitHub Release ----------------
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: ${{ env.RELEASE_NAME }}
