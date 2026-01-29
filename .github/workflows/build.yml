@@ -39,11 +39,17 @@ jobs:
             | jq -r '[.[] | select(.prerelease == false)][0].tag_name' \
             | sed 's/^v//')
 
+          APKEDITOR_URL=$(curl -s https://api.github.com/repos/REAndroid/APKEditor/releases \
+            | jq -r '[.[] | select(.prerelease == false)][0].assets[]
+                     | select(.name | endswith(".jar"))
+                     | .browser_download_url')
+
           echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
           echo "CLI_VERSION=$CLI_VERSION" >> $GITHUB_ENV
+          echo "APKEDITOR_URL=$APKEDITOR_URL" >> $GITHUB_ENV
 
-      # ---------------- Load YouTube & Music versions ----------------
-      - name: Load YouTube & Music versions
+      # ---------------- Load app versions ----------------
+      - name: Load app versions
         run: |
           while IFS='=' read -r key value; do
             echo "$key=$value" >> $GITHUB_ENV
@@ -59,6 +65,36 @@ jobs:
           chmod +x build.sh
           ./build.sh
 
+      # ---------------- Optional: MicroG-RE APKs ----------------
+      - name: Fetch MicroG-RE APKs (stable, optional)
+        run: |
+          set +e
+          echo "[+] Checking latest MicroG-RE stable release"
+
+          RELEASE_JSON=$(curl -s https://api.github.com/repos/MorpheApp/MicroG-RE/releases)
+
+          MICROG_TAG=$(echo "$RELEASE_JSON" | jq -r '[.[] | select(.prerelease == false)][0].tag_name')
+          APK_URLS=$(echo "$RELEASE_JSON" | jq -r '
+            [.[] | select(.prerelease == false)][0].assets[]
+            | select(.name | endswith(".apk"))
+            | .browser_download_url
+          ')
+
+          if [[ -z "$APK_URLS" ]]; then
+            echo "No MicroG-RE APKs found, skipping"
+            exit 0
+          fi
+
+          mkdir -p build/microg
+
+          for url in $APK_URLS; do
+            file=$(basename "$url")
+            echo "Downloading $file"
+            curl -L --fail "$url" -o "build/microg/$file"
+          done
+
+          echo "MICROG_VERSION=${MICROG_TAG#v}" >> $GITHUB_ENV
+
       # ---------------- Generate release notes ----------------
       - name: Generate release notes
         run: |
@@ -69,27 +105,40 @@ jobs:
             https://api.github.com/repos/MorpheApp/morphe-patches/releases/tags/${PATCH_TAG} \
             | jq -r '.body')
 
-          cat <<EOF > release.md
-          ## Versions
+          {
+            echo "## Versions"
+            echo
+            echo "- YouTube: ${YOUTUBE_VERSION}"
+            echo "- Music: ${MUSIC_VERSION}"
 
-          - YouTube: ${YOUTUBE_VERSION}
-          - Music: ${MUSIC_VERSION}
-          - Morphe Patch: ${PATCH_VERSION}
-          - Morphe CLI: ${CLI_VERSION}
+            if [ -f build/Reddit-Morphe.apk ]; then
+              echo "- Reddit: ${REDDIT_VERSION}"
+            fi
 
-          ## Morphe Patch Changelog (${PATCH_TAG})
+            if ls build/microg/*.apk >/dev/null 2>&1; then
+              echo "- MicroG: ${MICROG_VERSION}"
+            fi
 
-          ${CHANGELOG}
-          EOF
+            echo "- Morphe Patch: ${PATCH_VERSION}"
+            echo "- Morphe CLI: ${CLI_VERSION}"
+            echo
+            echo "## Morphe Patch Changelog (${PATCH_TAG})"
+            echo
+            echo "${CHANGELOG}"
+          } > release.md
 
           echo "RELEASE_TAG=v${PATCH_VERSION}" >> $GITHUB_ENV
           echo "RELEASE_NAME=${DATE_TAG}" >> $GITHUB_ENV
 
-      # ---------------- Rename APKs (VERSIONED ASSETS) ----------------
+      # ---------------- Rename APKs ----------------
       - name: Rename APK assets
         run: |
           mv build/YouTube-Morphe.apk build/YouTube-v${YOUTUBE_VERSION}-v${PATCH_VERSION}.apk
           mv build/Music-Morphe.apk build/Music-v${MUSIC_VERSION}-v${PATCH_VERSION}.apk
+
+          if [ -f build/Reddit-Morphe.apk ]; then
+            mv build/Reddit-Morphe.apk build/Reddit-v${REDDIT_VERSION}-v${PATCH_VERSION}.apk
+          fi
 
       # ---------------- Create GitHub Release ----------------
       - name: Create GitHub release
@@ -100,9 +149,12 @@ jobs:
           tag_name: ${{ env.RELEASE_TAG }}
           name: ${{ env.RELEASE_NAME }}
           body_path: release.md
+          fail_on_unmatched_files: false
           files: |
             build/YouTube-v${{ env.YOUTUBE_VERSION }}-v${{ env.PATCH_VERSION }}.apk
             build/Music-v${{ env.MUSIC_VERSION }}-v${{ env.PATCH_VERSION }}.apk
+            build/Reddit-v${{ env.REDDIT_VERSION }}-v${{ env.PATCH_VERSION }}.apk
+            build/microg/*.apk
 
       # ---------------- Commit versions ONLY after release ----------------
       - name: Update version files after successful release
@@ -117,9 +169,14 @@ jobs:
           git add morphe-patches-version.txt morphe-cli-version.txt
 
           if git diff --cached --quiet; then
-            echo "No version changes to commit"
             exit 0
           fi
 
-          git commit -m "Update Morphe patch and CLI versions after release"
+          MSG="chore: update Morphe patch to ${PATCH_VERSION}"
+
+          if git diff --cached morphe-cli-version.txt | grep -q .; then
+            MSG="$MSG, CLI to ${CLI_VERSION}"
+          fi
+
+          git commit -m "$MSG"
           git push
