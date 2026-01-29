@@ -1,6 +1,16 @@
-# Signing keys / secrets
+# =========================================
+# Signing keys / cryptographic secrets
+# -----------------------------------------
+# These files must NEVER be committed.
+# They contain private signing material
+# used for APK signing and CI releases.
+# =========================================
+
+# Android keystore formats
 *.keystore
 *.jks
 *.p12
-*.b64
 *.bks
+
+# Base64-encoded secrets (often used in CI)
+*.b64

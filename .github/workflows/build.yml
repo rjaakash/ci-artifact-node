@@ -11,24 +11,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ---------------- Checkout ----------------
+      # =================================================
+      # Repository checkout
+      # =================================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ---------------- Java ----------------
+      # =================================================
+      # Java setup (required by Morphe CLI & tools)
+      # =================================================
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      # ---------------- Restore keystore ----------------
+      # =================================================
+      # Restore signing keystore from GitHub Secrets
+      # =================================================
       - name: Restore keystore from GitHub Secrets
         run: |
           echo "${{ secrets.MORPHE_KEYSTORE_B64 }}" | base64 -d > morphe-release.bks
           ls -lh morphe-release.bks
 
-      # ---------------- Resolve latest stable versions ----------------
+      # =================================================
+      # Resolve latest stable Morphe components
+      # - Morphe patches
+      # - Morphe CLI
+      # - APKEditor (for APK/APKM handling)
+      # =================================================
       - name: Resolve Morphe versions (stable only)
         run: |
           PATCH_VERSION=$(curl -s https://api.github.com/repos/MorpheApp/morphe-patches/releases \
@@ -48,14 +59,20 @@ jobs:
           echo "CLI_VERSION=$CLI_VERSION" >> $GITHUB_ENV
           echo "APKEDITOR_URL=$APKEDITOR_URL" >> $GITHUB_ENV
 
-      # ---------------- Load app versions ----------------
+      # =================================================
+      # Load app versions controlled via versions.env
+      # =================================================
       - name: Load app versions
         run: |
           while IFS='=' read -r key value; do
             echo "$key=$value" >> $GITHUB_ENV
           done < versions.env
 
-      # ---------------- Build ----------------
+      # =================================================
+      # Run main build script
+      # - YouTube & Music are mandatory
+      # - Reddit is optional (handled inside script)
+      # =================================================
       - name: Run build script
         env:
           KEYSTORE_PASSWORD: ${{ secrets.MORPHE_KEYSTORE_PASSWORD }}
@@ -65,7 +82,10 @@ jobs:
           chmod +x build.sh
           ./build.sh
 
-      # ---------------- Optional: MicroG-RE APKs ----------------
+      # =================================================
+      # OPTIONAL: Fetch latest stable MicroG-RE APKs
+      # - Skipped silently if none are available
+      # =================================================
       - name: Fetch MicroG-RE APKs (stable, optional)
         run: |
           set +e
@@ -95,7 +115,10 @@ jobs:
 
           echo "MICROG_VERSION=${MICROG_TAG#v}" >> $GITHUB_ENV
 
-      # ---------------- Generate release notes ----------------
+      # =================================================
+      # Generate GitHub release notes dynamically
+      # - Reddit & MicroG appear only if built/downloaded
+      # =================================================
       - name: Generate release notes
         run: |
           DATE_TAG=$(date +'%Y-%m-%d')
@@ -130,7 +153,9 @@ jobs:
           echo "RELEASE_TAG=v${PATCH_VERSION}" >> $GITHUB_ENV
           echo "RELEASE_NAME=${DATE_TAG}" >> $GITHUB_ENV
 
-      # ---------------- Rename APKs ----------------
+      # =================================================
+      # Rename APK outputs to versioned filenames
+      # =================================================
       - name: Rename APK assets
         run: |
           mv build/YouTube-Morphe.apk build/YouTube-v${YOUTUBE_VERSION}-v${PATCH_VERSION}.apk
@@ -140,7 +165,9 @@ jobs:
             mv build/Reddit-Morphe.apk build/Reddit-v${REDDIT_VERSION}-v${PATCH_VERSION}.apk
           fi
 
-      # ---------------- Create GitHub Release ----------------
+      # =================================================
+      # Create GitHub release and upload all assets
+      # =================================================
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         env:
@@ -156,7 +183,9 @@ jobs:
             build/Reddit-v${{ env.REDDIT_VERSION }}-v${{ env.PATCH_VERSION }}.apk
             build/microg/*.apk
 
-      # ---------------- Commit versions ONLY after release ----------------
+      # =================================================
+      # Update version tracking files after successful release
+      # =================================================
       - name: Update version files after successful release
         if: success()
         run: |

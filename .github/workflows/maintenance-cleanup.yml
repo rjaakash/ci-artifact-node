@@ -1,13 +1,19 @@
 name: Repository Maintenance Cleanup
 
 on:
+  # Scheduled maintenance run
+  # Executes every day at 00:00 UTC
   schedule:
-    # Runs daily at 00:00 UTC
     - cron: "0 0 * * *"
+
+  # Allows manual execution from GitHub UI
   workflow_dispatch:
 
 permissions:
+  # Required to delete releases and tags
   contents: write
+
+  # Required to delete workflow runs
   actions: write
 
 jobs:
@@ -15,14 +21,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # =================================================
+      # Checkout repository
+      # (Not strictly required for cleanup, but harmless
+      #  and useful if repo context is needed later)
+      # =================================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ----------------------------------------
+      # =================================================
       # Release cleanup
-      # Keeps only the latest 10 releases
-      # Deletes all older releases and their tags
-      # ----------------------------------------
+      # - Keeps only the latest 10 GitHub releases
+      # - Deletes all older releases
+      # - Also removes their associated Git tags
+      # =================================================
       - name: Cleanup old releases
         uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
@@ -31,11 +43,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ----------------------------------------
+      # =================================================
       # Workflow runs cleanup
-      # Keeps only the latest 90 runs overall
-      # Deletes all older workflow runs
-      # ----------------------------------------
+      # - Fetches up to 300 recent workflow runs
+      # - Keeps the latest 90 runs
+      # - Deletes all older runs to save storage
+      # =================================================
       - name: Cleanup old workflow runs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

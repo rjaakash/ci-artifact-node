@@ -1,10 +1,16 @@
 name: Repository Hard Cleanup
 
 on:
+  # Manual trigger ONLY
+  # This workflow is intentionally NOT scheduled
+  # Use with caution
   workflow_dispatch:
 
 permissions:
+  # Required to delete releases and tags
   contents: write
+
+  # Required to delete workflow runs
   actions: write
 
 jobs:
@@ -12,13 +18,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # =================================================
+      # Checkout repository
+      # (Not strictly required, but keeps repo context
+      #  available if needed)
+      # =================================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ----------------------------------------
+      # =================================================
       # HARD release cleanup
-      # Deletes ALL releases and ALL tags
-      # ----------------------------------------
+      # ⚠️ DESTRUCTIVE OPERATION
+      #
+      # - Deletes ALL GitHub releases
+      # - Deletes ALL associated Git tags
+      # - Intended for full repository reset
+      # =================================================
       - name: Delete all releases and tags
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -31,10 +46,14 @@ jobs:
               git push origin ":refs/tags/$tag" || true
             done
 
-      # ----------------------------------------
+      # =================================================
       # HARD workflow runs cleanup
-      # Keeps only the latest 1 run overall
-      # ----------------------------------------
+      # ⚠️ DESTRUCTIVE OPERATION
+      #
+      # - Keeps ONLY the most recent workflow run
+      # - Deletes all older runs across all workflows
+      # - Useful for freeing Actions storage quickly
+      # =================================================
       - name: Delete old workflow runs (keep 1)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -2,12 +2,18 @@ name: Morphe Patch Watcher
 
 on:
   schedule:
-    # Runs daily at 00:00 Indian Standard Time (18:30 UTC)
+    # Runs once per day at 00:00 IST
+    # (18:30 UTC — GitHub cron uses UTC)
     - cron: "30 18 * * *"
+
+  # Manual trigger for testing or forced checks
   workflow_dispatch:
 
 permissions:
+  # Read access needed to compare stored patch version
   contents: read
+
+  # Required to trigger another workflow
   actions: write
 
 jobs:
@@ -15,31 +21,51 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # =================================================
+      # Checkout repository
+      # Needed to read morphe-patches-version.txt
+      # =================================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # =================================================
+      # Check latest Morphe patch (stable releases only)
+      #
+      # - Ignores prereleases
+      # - Compares against stored patch version
+      # - Uses safety guards to avoid false triggers
+      # =================================================
       - name: Check latest Morphe patch (stable only)
         id: patchcheck
         run: |
           set -e
 
-          # Fetch latest STABLE patch (ignore prerelease)
+          # Fetch latest STABLE patch version from GitHub API
+          # Prereleases are explicitly ignored
           LATEST=$(curl -s https://api.github.com/repos/MorpheApp/morphe-patches/releases \
             | jq -r '[.[] | select(type=="object") | select(.prerelease == false)][0].tag_name // empty' \
             | sed 's/^v//')
 
+          # Read currently recorded patch version
+          # Falls back to "none" if file does not exist
           CURRENT=$(cat morphe-patches-version.txt 2>/dev/null || echo "none")
 
           echo "Latest patch  : [$LATEST]"
           echo "Current patch : [$CURRENT]"
 
-          # Safety guard: skip if API returns empty/invalid data
+          # -------------------------------------------------
+          # Safety guard
+          # If API returns empty or invalid data, do NOT trigger build
+          # -------------------------------------------------
           if [ -z "$LATEST" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Patch API returned no valid release. Skipping."
             exit 0
           fi
 
+          # -------------------------------------------------
+          # Compare versions
+          # -------------------------------------------------
           if [ "$LATEST" = "$CURRENT" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "No new Morphe patch detected. Exiting."
@@ -48,6 +74,12 @@ jobs:
             echo "New Morphe patch detected."
           fi
 
+      # =================================================
+      # Trigger build workflow
+      #
+      # - Runs ONLY when a new patch is detected
+      # - Delegates actual build logic to build.yml
+      # =================================================
       - name: Trigger build workflow
         if: steps.patchcheck.outputs.changed == 'true'
         env:
