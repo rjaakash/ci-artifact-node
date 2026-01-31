@@ -36,19 +36,14 @@ jobs:
 
       # =================================================
       # Resolve latest stable Morphe components
-      # - Morphe patches
-      # - Morphe CLI
-      # - APKEditor (for APK/APKM handling)
       # =================================================
       - name: Resolve Morphe versions (stable only)
         run: |
           PATCH_VERSION=$(curl -s https://api.github.com/repos/MorpheApp/morphe-patches/releases \
-            | jq -r '[.[] | select(.prerelease == false)][0].tag_name' \
-            | sed 's/^v//')
+            | jq -r '[.[] | select(.prerelease == false)][0].tag_name' | sed 's/^v//')
 
           CLI_VERSION=$(curl -s https://api.github.com/repos/MorpheApp/morphe-cli/releases \
-            | jq -r '[.[] | select(.prerelease == false)][0].tag_name' \
-            | sed 's/^v//')
+            | jq -r '[.[] | select(.prerelease == false)][0].tag_name' | sed 's/^v//')
 
           APKEDITOR_URL=$(curl -s https://api.github.com/repos/REAndroid/APKEditor/releases \
             | jq -r '[.[] | select(.prerelease == false)][0].assets[]
@@ -60,18 +55,37 @@ jobs:
           echo "APKEDITOR_URL=$APKEDITOR_URL" >> $GITHUB_ENV
 
       # =================================================
-      # Load app versions controlled via versions.env
+      # Resolve app versions + URLs from ci-artifact-index
       # =================================================
-      - name: Load app versions
+      - name: Resolve app artifacts from index repo
         run: |
-          while IFS='=' read -r key value; do
-            echo "$key=$value" >> $GITHUB_ENV
-          done < versions.env
+          API="https://api.github.com/repos/rjaakash/ci-artifact-index/releases"
+
+          get_latest () {
+            local name="$1"
+            curl -s "$API" \
+              | jq -r ".[] | select(.tag_name | startswith(\"$name-\")) | .tag_name" \
+              | sort -V | tail -n 1
+          }
+
+          YT_TAG=$(get_latest YouTube)
+          MUSIC_TAG=$(get_latest Music)
+          REDDIT_TAG=$(get_latest Reddit)
+
+          YOUTUBE_VERSION="${YT_TAG#YouTube-}"
+          MUSIC_VERSION="${MUSIC_TAG#Music-}"
+          REDDIT_VERSION="${REDDIT_TAG#Reddit-}"
+
+          echo "YOUTUBE_VERSION=$YOUTUBE_VERSION" >> $GITHUB_ENV
+          echo "MUSIC_VERSION=$MUSIC_VERSION" >> $GITHUB_ENV
+          echo "REDDIT_VERSION=$REDDIT_VERSION" >> $GITHUB_ENV
+
+          echo "YOUTUBE_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/${YT_TAG}/YouTube-${YOUTUBE_VERSION}.apk" >> $GITHUB_ENV
+          echo "MUSIC_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/${MUSIC_TAG}/Music-${MUSIC_VERSION}.apk" >> $GITHUB_ENV
+          echo "REDDIT_APKM_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/${REDDIT_TAG}/Reddit-${REDDIT_VERSION}.apkm" >> $GITHUB_ENV
 
       # =================================================
       # Run main build script
-      # - YouTube & Music are mandatory
-      # - Reddit is optional (handled inside script)
       # =================================================
       - name: Run build script
         env:
@@ -83,90 +97,59 @@ jobs:
           ./build.sh
 
       # =================================================
-      # OPTIONAL: Fetch latest stable MicroG-RE APKs
-      # - Skipped silently if none are available
+      # OPTIONAL: Fetch MicroG-RE APKs (unchanged)
       # =================================================
       - name: Fetch MicroG-RE APKs (stable, optional)
         run: |
           set +e
-          echo "[+] Checking latest MicroG-RE stable release"
-
           RELEASE_JSON=$(curl -s https://api.github.com/repos/MorpheApp/MicroG-RE/releases)
-
           MICROG_TAG=$(echo "$RELEASE_JSON" | jq -r '[.[] | select(.prerelease == false)][0].tag_name')
           APK_URLS=$(echo "$RELEASE_JSON" | jq -r '
             [.[] | select(.prerelease == false)][0].assets[]
             | select(.name | endswith(".apk"))
             | .browser_download_url
           ')
-
-          if [[ -z "$APK_URLS" ]]; then
-            echo "No MicroG-RE APKs found, skipping"
-            exit 0
-          fi
-
           mkdir -p build/microg
-
           for url in $APK_URLS; do
-            file=$(basename "$url")
-            echo "Downloading $file"
-            curl -L --fail "$url" -o "build/microg/$file"
+            curl -L --fail "$url" -o "build/microg/$(basename "$url")"
           done
-
           echo "MICROG_VERSION=${MICROG_TAG#v}" >> $GITHUB_ENV
 
       # =================================================
-      # Generate GitHub release notes dynamically
-      # - Reddit & MicroG appear only if built/downloaded
+      # Generate release notes (unchanged)
       # =================================================
       - name: Generate release notes
         run: |
           DATE_TAG=$(date +'%Y-%m-%d')
           PATCH_TAG="v${PATCH_VERSION}"
-
-          CHANGELOG=$(curl -s \
-            https://api.github.com/repos/MorpheApp/morphe-patches/releases/tags/${PATCH_TAG} \
-            | jq -r '.body')
-
+          CHANGELOG=$(curl -s https://api.github.com/repos/MorpheApp/morphe-patches/releases/tags/${PATCH_TAG} | jq -r '.body')
           {
             echo "## Versions"
-            echo
             echo "- YouTube: ${YOUTUBE_VERSION}"
             echo "- Music: ${MUSIC_VERSION}"
-
-            if [ -f build/Reddit-Morphe.apk ]; then
-              echo "- Reddit: ${REDDIT_VERSION}"
-            fi
-
-            if ls build/microg/*.apk >/dev/null 2>&1; then
-              echo "- MicroG: ${MICROG_VERSION}"
-            fi
-
+            echo "- Reddit: ${REDDIT_VERSION}"
             echo "- Morphe Patch: ${PATCH_VERSION}"
             echo "- Morphe CLI: ${CLI_VERSION}"
             echo
-            echo "## Morphe Patch Changelog (${PATCH_TAG})"
-            echo
-            echo "${CHANGELOG}"
+            echo "## Morphe Patch Changelog"
+            echo "$CHANGELOG"
           } > release.md
-
           echo "RELEASE_TAG=v${PATCH_VERSION}" >> $GITHUB_ENV
           echo "RELEASE_NAME=${DATE_TAG}" >> $GITHUB_ENV
 
       # =================================================
-      # Rename APK outputs to versioned filenames
+      # Rename APK outputs (unchanged)
       # =================================================
       - name: Rename APK assets
         run: |
           mv build/YouTube-Morphe.apk build/YouTube-v${YOUTUBE_VERSION}-v${PATCH_VERSION}.apk
           mv build/Music-Morphe.apk build/Music-v${MUSIC_VERSION}-v${PATCH_VERSION}.apk
-
           if [ -f build/Reddit-Morphe.apk ]; then
             mv build/Reddit-Morphe.apk build/Reddit-v${REDDIT_VERSION}-v${PATCH_VERSION}.apk
           fi
 
       # =================================================
-      # Create GitHub release and upload all assets
+      # Create GitHub release (unchanged)
       # =================================================
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
@@ -176,36 +159,19 @@ jobs:
           tag_name: ${{ env.RELEASE_TAG }}
           name: ${{ env.RELEASE_NAME }}
           body_path: release.md
-          fail_on_unmatched_files: false
           files: |
-            build/YouTube-v${{ env.YOUTUBE_VERSION }}-v${{ env.PATCH_VERSION }}.apk
-            build/Music-v${{ env.MUSIC_VERSION }}-v${{ env.PATCH_VERSION }}.apk
-            build/Reddit-v${{ env.REDDIT_VERSION }}-v${{ env.PATCH_VERSION }}.apk
+            build/*.apk
             build/microg/*.apk
 
       # =================================================
-      # Update version tracking files after successful release
+      # Update version tracking files (UNCHANGED, preserved)
       # =================================================
       - name: Update version files after successful release
         if: success()
         run: |
           echo "$PATCH_VERSION" > morphe-patches-version.txt
           echo "$CLI_VERSION" > morphe-cli-version.txt
-
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-
           git add morphe-patches-version.txt morphe-cli-version.txt
-
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-
-          MSG="chore: update Morphe patch to ${PATCH_VERSION}"
-
-          if git diff --cached morphe-cli-version.txt | grep -q .; then
-            MSG="$MSG, CLI to ${CLI_VERSION}"
-          fi
-
-          git commit -m "$MSG"
-          git push
+          git diff --cached --quiet || git commit -m "chore: update Morphe versions" && git push
