@@ -39,7 +39,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Deleting all releases..."
-          gh release list --limit 1000 --json tagName -q '.[].tagName' \
+          gh release list --limit 100 --json tagName -q '.[].tagName' \
           | while read -r tag; do
               echo "Deleting release and tag: $tag"
               gh release delete "$tag" --yes || true
@@ -47,12 +47,35 @@ jobs:
             done
 
       # =================================================
+      # Reset Morphe version tracking files
+      #
+      # - Sets morphe-cli-version.txt to 0
+      # - Sets morphe-patches-version.txt to 0
+      # =================================================
+      - name: Reset Morphe version files
+        run: |
+          echo "0" > morphe-cli-version.txt
+          echo "0" > morphe-patches-version.txt
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add morphe-cli-version.txt morphe-patches-version.txt
+
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          git commit -m "chore: hard reset Morphe version tracking"
+          git push
+
+      # =================================================
       # HARD workflow runs cleanup
       # ⚠️ DESTRUCTIVE OPERATION
       #
-      # - Keeps ONLY the most recent workflow run
+      # - Fetches last 300 workflow runs
+      # - Keeps ONLY the most recent run
       # - Deletes all older runs across all workflows
-      # - Useful for freeing Actions storage quickly
       # =================================================
       - name: Delete old workflow runs (keep 1)
         env:
