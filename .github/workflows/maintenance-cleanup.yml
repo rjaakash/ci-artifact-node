@@ -46,7 +46,7 @@ jobs:
       # =================================================
       # Workflow runs cleanup
       # - Fetches up to 300 recent workflow runs
-      # - Keeps the latest 90 runs
+      # - Keeps the latest 100 runs
       # - Deletes all older runs to save storage
       # =================================================
       - name: Cleanup old workflow runs
@@ -55,7 +55,7 @@ jobs:
         run: |
           gh run list -L300 --json databaseId \
             -q '.[].databaseId' \
-          | tail -n +91 \
+          | tail -n +101 \
           | xargs -r -I ID gh api \
             repos/$GITHUB_REPOSITORY/actions/runs/ID \
             -X DELETE
