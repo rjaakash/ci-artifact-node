@@ -151,7 +151,7 @@ jobs:
             fi
 
             if ls build/microg/*.apk >/dev/null 2>&1; then
-              echo "- MicroG: ${MICROG_VERSION}"
+              echo "- MicroG RE: ${MICROG_VERSION}"
             fi
 
             echo "- Morphe Patch: ${PATCH_VERSION}"
