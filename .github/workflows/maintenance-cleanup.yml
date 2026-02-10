@@ -31,17 +31,35 @@ jobs:
 
       # =================================================
       # Release cleanup
-      # - Keeps only the latest 10 GitHub releases
-      # - Deletes all older releases
-      # - Also removes their associated Git tags
+      # - Fetches 100 releases
+      # - Keeps latest 7
+      # - Deletes everything else + tags
       # =================================================
       - name: Cleanup old releases
-        uses: dev-drprasad/delete-older-releases@v0.3.4
-        with:
-          keep_latest: 10
-          delete_tags: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          export GH_TOKEN=$GH_TOKEN
+
+          echo "Fetching releases..."
+
+          gh release list --limit 100 --json tagName,createdAt \
+            -q '.[] | "\(.tagName)|\(.createdAt)"' \
+            | sort -t'|' -k2 -r > releases.txt
+
+          KEEP=$(head -n 7 releases.txt | cut -d'|' -f1)
+
+          echo "Keeping tags:"
+          echo "$KEEP"
+
+          cat releases.txt | while IFS='|' read -r TAG DATE; do
+            if ! echo "$KEEP" | grep -qx "$TAG"; then
+              echo "Deleting release + tag: $TAG"
+              gh release delete "$TAG" --yes || true
+              git push origin ":refs/tags/$TAG" || true
+            fi
+          done
 
       # =================================================
       # Workflow runs cleanup
