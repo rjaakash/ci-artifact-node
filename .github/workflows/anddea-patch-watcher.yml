@@ -30,10 +30,16 @@ jobs:
         run: |
           set -e
 
-          # Fetch most recent release (includes prereleases)
-          LATEST=$(curl -s https://api.github.com/repos/anddea/revanced-patches/releases \
-            | jq -r '.[0].tag_name // empty' \
-            | sed 's/^v//')
+          RELEASE_JSON=$(curl -s https://api.github.com/repos/anddea/revanced-patches/releases)
+
+          # Safely extract first release only if JSON root is an array
+          LATEST=$(echo "$RELEASE_JSON" | jq -r '
+            if type=="array" then
+              .[0].tag_name // empty
+            else
+              empty
+            end
+          ' | sed 's/^v//')
 
           # Read stored patch version
           CURRENT=$(cat anddea-patches-version.txt 2>/dev/null || echo "none")
