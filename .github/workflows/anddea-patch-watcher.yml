@@ -1,0 +1,68 @@
+name: Anddea Patch Watcher
+
+on:
+  schedule:
+    # Runs once per day at 09:10 UTC
+    - cron: "10 9 * * *"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      # =================================================
+      # Checkout repository
+      # =================================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # =================================================
+      # Check latest Anddea patch (stable + prerelease)
+      # =================================================
+      - name: Check latest Anddea patch
+        id: patchcheck
+        run: |
+          set -e
+
+          # Fetch most recent release (includes prereleases)
+          LATEST=$(curl -s https://api.github.com/repos/anddea/revanced-patches/releases \
+            | jq -r '.[0].tag_name // empty' \
+            | sed 's/^v//')
+
+          # Read stored patch version
+          CURRENT=$(cat anddea-patches-version.txt 2>/dev/null || echo "none")
+
+          echo "Latest Anddea patch  : [$LATEST]"
+          echo "Current stored patch : [$CURRENT]"
+
+          # Safety guard
+          if [ -z "$LATEST" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Patch API returned no valid release. Skipping."
+            exit 0
+          fi
+
+          # Compare versions
+          if [ "$LATEST" = "$CURRENT" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No new Anddea patch detected."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "New Anddea patch detected."
+          fi
+
+      # =================================================
+      # Trigger Anddea build workflow
+      # =================================================
+      - name: Trigger Anddea build workflow
+        if: steps.patchcheck.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run build-anddea.yml
