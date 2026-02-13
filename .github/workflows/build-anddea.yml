@@ -12,13 +12,13 @@ jobs:
 
     steps:
       # =================================================
-      # Checkout repository
+      # Repository checkout
       # =================================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
       # =================================================
-      # Java setup
+      # Java setup (required by Morphe CLI & tools)
       # =================================================
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -27,11 +27,12 @@ jobs:
           java-version: 17
 
       # =================================================
-      # Restore signing keystore
+      # Restore signing keystore from GitHub Secrets
       # =================================================
-      - name: Restore keystore
+      - name: Restore keystore from GitHub Secrets
         run: |
           echo "${{ secrets.MORPHE_KEYSTORE_B64 }}" | base64 -d > morphe-release.bks
+          ls -lh morphe-release.bks
 
       # =================================================
       # Resolve latest Anddea patch release (stable OR prerelease)
@@ -72,41 +73,30 @@ jobs:
           echo "CLI_VERSION=$CLI_VERSION" >> $GITHUB_ENV
 
       # =================================================
-      # Resolve supported app versions from Anddea patches-list.json
+      # Resolve supported app versions from Anddea patches
       # =================================================
-      - name: Resolve supported app versions
+      - name: Resolve supported app versions from Anddea patches
         run: |
           set -e
 
-          SOURCE_URL="https://raw.githubusercontent.com/anddea/revanced-patches/dev/patches-list.json"
-          JSON=$(curl -s "$SOURCE_URL")
+          JSON=$(curl -s https://raw.githubusercontent.com/anddea/revanced-patches/dev/patches-list.json)
 
-          # Resolve YouTube version
           YT_VERSION=$(echo "$JSON" | jq -r '
-              .patches[]
-              | .compatiblePackages["com.google.android.youtube"]? // empty
-              | .[]
-            ' | sort -V | tail -n 1)
+            .patches[]
+            | .compatiblePackages["com.google.android.youtube"]? // empty
+            | .[]
+          ' | sort -V | tail -n 1)
 
-          # Resolve YouTube Music version
           MUSIC_VERSION=$(echo "$JSON" | jq -r '
-              .patches[]
-              | .compatiblePackages["com.google.android.apps.youtube.music"]? // empty
-              | .[]
-            ' | sort -V | tail -n 1)
+            .patches[]
+            | .compatiblePackages["com.google.android.apps.youtube.music"]? // empty
+            | .[]
+          ' | sort -V | tail -n 1)
 
-          if [ -z "$YT_VERSION" ] || [ "$YT_VERSION" = "null" ]; then
-            echo "Failed to resolve compatible YouTube version"
+          if [ -z "$YT_VERSION" ] || [ -z "$MUSIC_VERSION" ]; then
+            echo "Failed to resolve compatible versions"
             exit 1
           fi
-
-          if [ -z "$MUSIC_VERSION" ] || [ "$MUSIC_VERSION" = "null" ]; then
-            echo "Failed to resolve compatible Music version"
-            exit 1
-          fi
-
-          echo "Resolved YouTube version: $YT_VERSION"
-          echo "Resolved Music version: $MUSIC_VERSION"
 
           echo "YOUTUBE_VERSION=$YT_VERSION" >> $GITHUB_ENV
           echo "MUSIC_VERSION=$MUSIC_VERSION" >> $GITHUB_ENV
@@ -115,7 +105,7 @@ jobs:
           echo "MUSIC_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Music-${MUSIC_VERSION}/Music-${MUSIC_VERSION}.apk" >> $GITHUB_ENV
 
       # =================================================
-      # Run Anddea build script
+      # Run main build script
       # =================================================
       - name: Run build-anddea.sh
         env:
@@ -127,15 +117,15 @@ jobs:
           ./build-anddea.sh
 
       # =================================================
-      # Rename APK outputs
+      # Rename APK outputs to versioned filenames
       # =================================================
-      - name: Rename APKs
+      - name: Rename APK assets
         run: |
           mv build/YouTube-Anddea.apk build/YouTube-v${YOUTUBE_VERSION}-Anddea-v${PATCH_VERSION}.apk
           mv build/Music-Anddea.apk build/Music-v${MUSIC_VERSION}-Anddea-v${PATCH_VERSION}.apk
 
       # =================================================
-      # Create GitHub Release
+      # Create GitHub release and upload all assets
       # =================================================
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
@@ -151,9 +141,9 @@ jobs:
             build/Music-v${{ env.MUSIC_VERSION }}-Anddea-v${{ env.PATCH_VERSION }}.apk
 
       # =================================================
-      # Update version tracking files
+      # Update version tracking files after successful release
       # =================================================
-      - name: Update version files
+      - name: Update version files after successful release
         if: success()
         run: |
           echo "$PATCH_VERSION" > anddea-patches-version.txt
