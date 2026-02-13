@@ -55,34 +55,44 @@ jobs:
           echo "APKEDITOR_URL=$APKEDITOR_URL" >> $GITHUB_ENV
 
       # =================================================
-      # Resolve app versions + URLs from ci-artifact-index
+      # Resolve supported app versions from Morphe patches
       # =================================================
-      - name: Resolve app artifacts from index repo
+      - name: Resolve supported app versions from Morphe patches
         run: |
-          API="https://api.github.com/repos/rjaakash/ci-artifact-index/releases"
+          set -e
 
-          get_latest () {
-            local name="$1"
-            curl -s "$API" \
-              | jq -r ".[] | select(.tag_name | startswith(\"$name-\")) | .tag_name" \
-              | sort -V | tail -n 1
-          }
+          JSON=$(curl -s https://raw.githubusercontent.com/MorpheApp/morphe-patches/main/patches-list.json)
 
-          YT_TAG=$(get_latest YouTube)
-          MUSIC_TAG=$(get_latest Music)
-          REDDIT_TAG=$(get_latest Reddit)
+          YT_VERSION=$(echo "$JSON" | jq -r '
+            .patches[]
+            | .compatiblePackages["com.google.android.youtube"]? // empty
+            | .[]
+          ' | sort -V | tail -n 1)
 
-          YOUTUBE_VERSION="${YT_TAG#YouTube-}"
-          MUSIC_VERSION="${MUSIC_TAG#Music-}"
-          REDDIT_VERSION="${REDDIT_TAG#Reddit-}"
+          MUSIC_VERSION=$(echo "$JSON" | jq -r '
+            .patches[]
+            | .compatiblePackages["com.google.android.apps.youtube.music"]? // empty
+            | .[]
+          ' | sort -V | tail -n 1)
 
-          echo "YOUTUBE_VERSION=$YOUTUBE_VERSION" >> $GITHUB_ENV
+          REDDIT_VERSION=$(echo "$JSON" | jq -r '
+            .patches[]
+            | .compatiblePackages["com.reddit.frontpage"]? // empty
+            | .[]
+          ' | sort -V | tail -n 1)
+
+          if [ -z "$YT_VERSION" ] || [ -z "$MUSIC_VERSION" ] || [ -z "$REDDIT_VERSION" ]; then
+            echo "Failed to resolve compatible versions"
+            exit 1
+          fi
+
+          echo "YOUTUBE_VERSION=$YT_VERSION" >> $GITHUB_ENV
           echo "MUSIC_VERSION=$MUSIC_VERSION" >> $GITHUB_ENV
           echo "REDDIT_VERSION=$REDDIT_VERSION" >> $GITHUB_ENV
 
-          echo "YOUTUBE_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/${YT_TAG}/YouTube-${YOUTUBE_VERSION}.apk" >> $GITHUB_ENV
-          echo "MUSIC_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/${MUSIC_TAG}/Music-${MUSIC_VERSION}.apk" >> $GITHUB_ENV
-          echo "REDDIT_APKM_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/${REDDIT_TAG}/Reddit-${REDDIT_VERSION}.apkm" >> $GITHUB_ENV
+          echo "YOUTUBE_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/YouTube-${YT_VERSION}/YouTube-${YT_VERSION}.apk" >> $GITHUB_ENV
+          echo "MUSIC_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Music-${MUSIC_VERSION}/Music-${MUSIC_VERSION}.apk" >> $GITHUB_ENV
+          echo "REDDIT_APKM_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Reddit-${REDDIT_VERSION}/Reddit-${REDDIT_VERSION}.apkm" >> $GITHUB_ENV
 
       # =================================================
       # Run main build script
@@ -133,7 +143,6 @@ jobs:
       # =================================================
       - name: Generate release notes
         run: |
-          DATE_TAG=$(date +'%Y-%m-%d')
           PATCH_TAG="v${PATCH_VERSION}"
 
           CHANGELOG=$(curl -s \
@@ -162,8 +171,8 @@ jobs:
             echo "${CHANGELOG}"
           } > release.md
 
-          echo "RELEASE_TAG=v${PATCH_VERSION}" >> $GITHUB_ENV
-          echo "RELEASE_NAME=${DATE_TAG}" >> $GITHUB_ENV
+          echo "RELEASE_TAG=Morphe-v${PATCH_VERSION}" >> $GITHUB_ENV
+          echo "RELEASE_NAME=Morphe v${PATCH_VERSION}" >> $GITHUB_ENV
 
       # =================================================
       # Rename APK outputs to versioned filenames
