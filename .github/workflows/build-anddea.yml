@@ -1,0 +1,179 @@
+name: Build Anddea Apps
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # =================================================
+      # Checkout repository
+      # =================================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # =================================================
+      # Java setup
+      # =================================================
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # =================================================
+      # Restore signing keystore
+      # =================================================
+      - name: Restore keystore
+        run: |
+          echo "${{ secrets.MORPHE_KEYSTORE_B64 }}" | base64 -d > morphe-release.bks
+
+      # =================================================
+      # Resolve latest Anddea patch release (stable OR prerelease)
+      # =================================================
+      - name: Resolve Anddea patch version
+        run: |
+          set -e
+
+          RELEASE_JSON=$(curl -s https://api.github.com/repos/anddea/revanced-patches/releases)
+
+          PATCH_VERSION=$(echo "$RELEASE_JSON" | jq -r '.[0].tag_name' | sed 's/^v//')
+          IS_PRERELEASE=$(echo "$RELEASE_JSON" | jq -r '.[0].prerelease')
+
+          if [ -z "$PATCH_VERSION" ] || [ "$PATCH_VERSION" = "null" ]; then
+            echo "Failed to resolve Anddea patch version"
+            exit 1
+          fi
+
+          echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
+          echo "IS_PRERELEASE=$IS_PRERELEASE" >> $GITHUB_ENV
+
+      # =================================================
+      # Resolve latest stable Morphe CLI
+      # =================================================
+      - name: Resolve Morphe CLI version (stable only)
+        run: |
+          set -e
+
+          CLI_VERSION=$(curl -s https://api.github.com/repos/MorpheApp/morphe-cli/releases \
+            | jq -r '[.[] | select(.prerelease == false)][0].tag_name' \
+            | sed 's/^v//')
+
+          if [ -z "$CLI_VERSION" ] || [ "$CLI_VERSION" = "null" ]; then
+            echo "Failed to resolve Morphe CLI version"
+            exit 1
+          fi
+
+          echo "CLI_VERSION=$CLI_VERSION" >> $GITHUB_ENV
+
+      # =================================================
+      # Resolve supported app versions from Anddea patches-list.json
+      # =================================================
+      - name: Resolve supported app versions
+        run: |
+          set -e
+
+          SOURCE_URL="https://raw.githubusercontent.com/anddea/revanced-patches/dev/patches-list.json"
+          JSON=$(curl -s "$SOURCE_URL")
+
+          # Resolve YouTube version
+          YT_VERSION=$(echo "$JSON" | jq -r '
+              .patches[]
+              | .compatiblePackages["com.google.android.youtube"]? // empty
+              | .[]
+            ' | sort -V | tail -n 1)
+
+          # Resolve YouTube Music version
+          MUSIC_VERSION=$(echo "$JSON" | jq -r '
+              .patches[]
+              | .compatiblePackages["com.google.android.apps.youtube.music"]? // empty
+              | .[]
+            ' | sort -V | tail -n 1)
+
+          if [ -z "$YT_VERSION" ] || [ "$YT_VERSION" = "null" ]; then
+            echo "Failed to resolve compatible YouTube version"
+            exit 1
+          fi
+
+          if [ -z "$MUSIC_VERSION" ] || [ "$MUSIC_VERSION" = "null" ]; then
+            echo "Failed to resolve compatible Music version"
+            exit 1
+          fi
+
+          echo "Resolved YouTube version: $YT_VERSION"
+          echo "Resolved Music version: $MUSIC_VERSION"
+
+          echo "YOUTUBE_VERSION=$YT_VERSION" >> $GITHUB_ENV
+          echo "MUSIC_VERSION=$MUSIC_VERSION" >> $GITHUB_ENV
+
+          echo "YOUTUBE_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/YouTube-${YT_VERSION}/YouTube-${YT_VERSION}.apk" >> $GITHUB_ENV
+          echo "MUSIC_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Music-${MUSIC_VERSION}/Music-${MUSIC_VERSION}.apk" >> $GITHUB_ENV
+
+      # =================================================
+      # Run Anddea build script
+      # =================================================
+      - name: Run build-anddea.sh
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.MORPHE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MORPHE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.MORPHE_KEY_PASSWORD }}
+        run: |
+          chmod +x build-anddea.sh
+          ./build-anddea.sh
+
+      # =================================================
+      # Rename APK outputs
+      # =================================================
+      - name: Rename APKs
+        run: |
+          mv build/YouTube-Anddea.apk build/YouTube-v${YOUTUBE_VERSION}-Anddea-v${PATCH_VERSION}.apk
+          mv build/Music-Anddea.apk build/Music-v${MUSIC_VERSION}-Anddea-v${PATCH_VERSION}.apk
+
+      # =================================================
+      # Create GitHub Release
+      # =================================================
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        with:
+          tag_name: Anddea-v${{ env.PATCH_VERSION }}
+          name: Anddea v${{ env.PATCH_VERSION }}
+          prerelease: ${{ env.IS_PRERELEASE }}
+          fail_on_unmatched_files: false
+          files: |
+            build/YouTube-v${{ env.YOUTUBE_VERSION }}-Anddea-v${{ env.PATCH_VERSION }}.apk
+            build/Music-v${{ env.MUSIC_VERSION }}-Anddea-v${{ env.PATCH_VERSION }}.apk
+
+      # =================================================
+      # Update version tracking files
+      # =================================================
+      - name: Update version files
+        if: success()
+        run: |
+          echo "$PATCH_VERSION" > anddea-patches-version.txt
+          echo "$CLI_VERSION" > morphe-cli-version.txt
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add anddea-patches-version.txt morphe-cli-version.txt
+
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          MSG="chore: update Anddea patch to ${PATCH_VERSION}"
+
+          if git diff --cached morphe-cli-version.txt | grep -q .; then
+            MSG="$MSG, CLI to ${CLI_VERSION}"
+          fi
+
+          git commit -m "$MSG"
+          git pull --rebase origin main
+          git push
