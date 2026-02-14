@@ -1,0 +1,110 @@
+name: Patch Watcher
+
+on:
+  schedule:
+    - cron: "9 6 * * *"   # 06:09 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      # =================================================
+      # Checkout repository
+      # =================================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # =================================================
+      # Check latest Morphe patch (stable only)
+      # =================================================
+      - name: Check Morphe patch
+        id: morphecheck
+        run: |
+          set -e
+
+          LATEST=$(curl -s https://api.github.com/repos/MorpheApp/morphe-patches/releases \
+            | jq -r '[.[] | select(type=="object") | select(.prerelease == false)][0].tag_name // empty' \
+            | sed 's/^v//')
+
+          CURRENT=$(cat morphe-patches-version.txt 2>/dev/null || echo "none")
+
+          echo "Latest Morphe patch  : [$LATEST]"
+          echo "Current Morphe patch : [$CURRENT]"
+
+          if [ -z "$LATEST" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$LATEST" = "$CURRENT" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # =================================================
+      # Trigger Morphe build
+      # =================================================
+      - name: Trigger Morphe build
+        if: steps.morphecheck.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run morphe.yml
+
+      # =================================================
+      # Wait 10 minutes (allow Morphe build to finish)
+      # =================================================
+      - name: Sleep 10 minutes
+        if: steps.morphecheck.outputs.changed == 'true'
+        run: sleep 600
+
+      # =================================================
+      # Check latest Anddea patch (stable + prerelease)
+      # =================================================
+      - name: Check Anddea patch
+        id: anddeacheck
+        run: |
+          set -e
+
+          RELEASE_JSON=$(curl -s https://api.github.com/repos/anddea/revanced-patches/releases)
+
+          LATEST=$(echo "$RELEASE_JSON" | jq -r '
+            if type=="array" then
+              .[0].tag_name // empty
+            else
+              empty
+            end
+          ' | sed 's/^v//')
+
+          CURRENT=$(cat anddea-patches-version.txt 2>/dev/null || echo "none")
+
+          echo "Latest Anddea patch  : [$LATEST]"
+          echo "Current Anddea patch : [$CURRENT]"
+
+          if [ -z "$LATEST" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$LATEST" = "$CURRENT" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # =================================================
+      # Trigger Anddea build
+      # =================================================
+      - name: Trigger Anddea build
+        if: steps.anddeacheck.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run anddea.yml
