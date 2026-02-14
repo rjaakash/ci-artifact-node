@@ -119,18 +119,22 @@ jobs:
             <(echo "$AVAILABLE_REDDIT" | sort -V) \
           | sort -V | tail -n 1)
 
-          if [ -z "$YT_VERSION" ] || [ -z "$MUSIC_VERSION" ] || [ -z "$REDDIT_VERSION" ]; then
-            echo "No compatible version found between patches and index repo"
+          # Only YouTube and Music are mandatory
+          if [ -z "$YT_VERSION" ] || [ -z "$MUSIC_VERSION" ]; then
+            echo "No compatible version found for YouTube or Music"
             exit 1
           fi
 
           echo "YOUTUBE_VERSION=$YT_VERSION" >> $GITHUB_ENV
           echo "MUSIC_VERSION=$MUSIC_VERSION" >> $GITHUB_ENV
-          echo "REDDIT_VERSION=$REDDIT_VERSION" >> $GITHUB_ENV
+
+          if [ -n "$REDDIT_VERSION" ]; then
+            echo "REDDIT_VERSION=$REDDIT_VERSION" >> $GITHUB_ENV
+            echo "REDDIT_APKM_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Reddit-${REDDIT_VERSION}/Reddit-${REDDIT_VERSION}.apkm" >> $GITHUB_ENV
+          fi
 
           echo "YOUTUBE_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/YouTube-${YT_VERSION}/YouTube-${YT_VERSION}.apk" >> $GITHUB_ENV
           echo "MUSIC_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Music-${MUSIC_VERSION}/Music-${MUSIC_VERSION}.apk" >> $GITHUB_ENV
-          echo "REDDIT_APKM_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Reddit-${REDDIT_VERSION}/Reddit-${REDDIT_VERSION}.apkm" >> $GITHUB_ENV
 
       # =================================================
       # Run main build script (UPDATED PATH ONLY)
