@@ -80,16 +80,20 @@ java -jar tools/morphe-cli.jar patch \
   --keystore-entry-alias "$KEY_ALIAS" \
   --keystore-entry-password "$KEY_PASSWORD" \
   -p patches/patches.mpp \
-  --ei=85 \
-  --ei=117 \
-  --ei=125 \
-  --ei=95 \
-  -O appIcon=xisr_yellow \
-  -O restoreOldSplashAnimation=true \
-  -O iconType=rounded \
-  -O rvxSettingsLabel=Anddea \
-  -O settingsMenuIcon=rvx_letters_bold \
-  -O applyToAll=false \
+  -e 'Custom branding name for YouTube' \
+  -e 'Custom header for YouTube' \
+  -e 'Hide shortcuts' \
+  -e 'Theme' \
+  -e 'Custom branding icon for YouTube' \
+  -OappIcon=xisr_yellow \
+  -OrestoreOldSplashAnimation=true \
+  -e 'Overlay buttons' \
+  -OiconType=rounded \
+  -e 'Settings for YouTube' \
+  -OrvxSettingsLabel=Anddea \
+  -e 'Visual preferences icons for YouTube' \
+  -OsettingsMenuIcon=rvx_letters_bold \
+  -OapplyToAll=false \
   -o build/YouTube-Anddea.apk \
   --purge \
   temp/youtube.apk
@@ -103,17 +107,18 @@ java -jar tools/morphe-cli.jar patch \
   --keystore-entry-alias "$KEY_ALIAS" \
   --keystore-entry-password "$KEY_PASSWORD" \
   -p patches/patches.mpp \
-  --ei=20 \
-  --ei=21 \
-  --ei=43 \
-  --ei=27 \
-  -O appIcon=xisr_yellow \
-  -O restoreOldSplashIcon=true \
-  -O appNameNotification=Music \
-  -O appNameLauncher=Music \
-  -O rvxSettingsLabel=Anddea \
-  -O settingsMenuIcon=rvx_letters_bold \
-  -O applyToAll=false \
+  -e 'Custom header for YouTube Music' \
+  -e 'Custom branding icon for YouTube Music' \
+  -OappIcon=xisr_yellow \
+  -OrestoreOldSplashIcon=true \
+  -e 'Custom branding name for YouTube Music' \
+  -OappNameNotification=Music \
+  -OappNameLauncher=Music \
+  -e 'Settings for YouTube Music' \
+  -OrvxSettingsLabel=Anddea \
+  -e 'Visual preferences icons for YouTube Music' \
+  -OsettingsMenuIcon=rvx_letters_bold \
+  -OapplyToAll=false \
   -o build/Music-Anddea.apk \
   --purge \
   temp/music.apk
