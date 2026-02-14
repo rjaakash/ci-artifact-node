@@ -27,6 +27,14 @@ jobs:
           java-version: 17
 
       # =================================================
+      # Install required system tools
+      # =================================================
+      - name: Install required tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq file
+
+      # =================================================
       # Restore signing keystore from GitHub Secrets
       # =================================================
       - name: Restore signing keystore from GitHub Secrets
@@ -47,6 +55,14 @@ jobs:
           CLI_VERSION=$(curl -s https://api.github.com/repos/MorpheApp/morphe-cli/releases \
             | jq -r '[.[] | select(.prerelease == false)][0].tag_name' | sed 's/^v//')
 
+          # Hardened APKEditor resolution (optional)
+          APKEDITOR_URL=$(curl -s https://api.github.com/repos/REAndroid/APKEditor/releases \
+            | jq -r '
+                [.[] | select(.prerelease == false)][0].assets[]
+                | select(.name | test("(?i)\\.jar$"))
+                | .browser_download_url
+              ' | head -n 1)
+
           if [ -z "$PATCH_VERSION" ] || [ "$PATCH_VERSION" = "null" ]; then
             echo "Failed to resolve Morphe patch version"
             exit 1
@@ -59,6 +75,10 @@ jobs:
 
           echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
           echo "CLI_VERSION=$CLI_VERSION" >> $GITHUB_ENV
+
+          if [ -n "$APKEDITOR_URL" ] && [ "$APKEDITOR_URL" != "null" ]; then
+            echo "APKEDITOR_URL=$APKEDITOR_URL" >> $GITHUB_ENV
+          fi
 
       # =================================================
       # Resolve supported app versions from Morphe patches
@@ -151,6 +171,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.MORPHE_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.MORPHE_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.MORPHE_KEY_PASSWORD }}
+          APKEDITOR_URL: ${{ env.APKEDITOR_URL }}
         run: |
           chmod +x scripts/morphe.sh
           ./scripts/morphe.sh
