@@ -128,13 +128,16 @@ jobs:
           echo "YOUTUBE_VERSION=$YT_VERSION" >> $GITHUB_ENV
           echo "MUSIC_VERSION=$MUSIC_VERSION" >> $GITHUB_ENV
 
+          echo "YOUTUBE_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/YouTube-${YT_VERSION}/YouTube-${YT_VERSION}.apk" >> $GITHUB_ENV
+          echo "MUSIC_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Music-${MUSIC_VERSION}/Music-${MUSIC_VERSION}.apk" >> $GITHUB_ENV
+
+          # Reddit is OPTIONAL
           if [ -n "$REDDIT_VERSION" ]; then
             echo "REDDIT_VERSION=$REDDIT_VERSION" >> $GITHUB_ENV
             echo "REDDIT_APKM_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Reddit-${REDDIT_VERSION}/Reddit-${REDDIT_VERSION}.apkm" >> $GITHUB_ENV
+          else
+            echo "No compatible Reddit version found, continuing without Reddit"
           fi
-
-          echo "YOUTUBE_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/YouTube-${YT_VERSION}/YouTube-${YT_VERSION}.apk" >> $GITHUB_ENV
-          echo "MUSIC_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Music-${MUSIC_VERSION}/Music-${MUSIC_VERSION}.apk" >> $GITHUB_ENV
 
       # =================================================
       # Run main build script (UPDATED PATH ONLY)
