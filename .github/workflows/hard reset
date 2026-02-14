@@ -1,4 +1,4 @@
-name: Reset
+name: Hard Reset
 
 on:
   workflow_dispatch:
