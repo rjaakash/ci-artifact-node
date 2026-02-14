@@ -1,4 +1,4 @@
-name: Repository Maintenance Cleanup
+name: Cleanup
 
 on:
   # Scheduled maintenance run
