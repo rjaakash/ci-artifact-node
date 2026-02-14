@@ -39,20 +39,26 @@ jobs:
       # =================================================
       - name: Resolve Morphe versions (stable only)
         run: |
+          set -e
+
           PATCH_VERSION=$(curl -s https://api.github.com/repos/MorpheApp/morphe-patches/releases \
             | jq -r '[.[] | select(.prerelease == false)][0].tag_name' | sed 's/^v//')
 
           CLI_VERSION=$(curl -s https://api.github.com/repos/MorpheApp/morphe-cli/releases \
             | jq -r '[.[] | select(.prerelease == false)][0].tag_name' | sed 's/^v//')
 
-          APKEDITOR_URL=$(curl -s https://api.github.com/repos/REAndroid/APKEditor/releases \
-            | jq -r '[.[] | select(.prerelease == false)][0].assets[]
-                     | select(.name | endswith(".jar"))
-                     | .browser_download_url')
+          if [ -z "$PATCH_VERSION" ] || [ "$PATCH_VERSION" = "null" ]; then
+            echo "Failed to resolve Morphe patch version"
+            exit 1
+          fi
+
+          if [ -z "$CLI_VERSION" ] || [ "$CLI_VERSION" = "null" ]; then
+            echo "Failed to resolve Morphe CLI version"
+            exit 1
+          fi
 
           echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
           echo "CLI_VERSION=$CLI_VERSION" >> $GITHUB_ENV
-          echo "APKEDITOR_URL=$APKEDITOR_URL" >> $GITHUB_ENV
 
       # =================================================
       # Resolve supported app versions from Morphe patches
@@ -131,7 +137,7 @@ jobs:
           echo "YOUTUBE_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/YouTube-${YT_VERSION}/YouTube-${YT_VERSION}.apk" >> $GITHUB_ENV
           echo "MUSIC_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Music-${MUSIC_VERSION}/Music-${MUSIC_VERSION}.apk" >> $GITHUB_ENV
 
-          # Reddit is OPTIONAL
+          # Reddit is optional
           if [ -n "$REDDIT_VERSION" ]; then
             echo "REDDIT_VERSION=$REDDIT_VERSION" >> $GITHUB_ENV
             echo "REDDIT_APKM_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Reddit-${REDDIT_VERSION}/Reddit-${REDDIT_VERSION}.apkm" >> $GITHUB_ENV
@@ -140,7 +146,7 @@ jobs:
           fi
 
       # =================================================
-      # Run main build script (UPDATED PATH ONLY)
+      # Run main build script
       # =================================================
       - name: Run build script
         env:
