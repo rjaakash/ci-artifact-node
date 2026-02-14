@@ -35,7 +35,7 @@ jobs:
           ls -lh morphe-release.bks
 
       # =================================================
-      # Resolve latest Anddea patch (stable OR prerelease)
+      # Resolve latest Anddea patch
       # =================================================
       - name: Resolve Anddea patch version
         run: |
@@ -73,7 +73,7 @@ jobs:
           echo "CLI_VERSION=$CLI_VERSION" >> $GITHUB_ENV
 
       # =================================================
-      # Resolve supported app versions from Anddea patches
+      # Resolve supported app versions
       # =================================================
       - name: Resolve supported app versions
         run: |
@@ -117,7 +117,7 @@ jobs:
           ./build-anddea.sh
 
       # =================================================
-      # Generate release notes (Mirrored from Morphe)
+      # Generate release notes
       # =================================================
       - name: Generate release notes
         run: |
@@ -170,7 +170,7 @@ jobs:
             build/Music-v${{ env.MUSIC_VERSION }}-Anddea-v${{ env.PATCH_VERSION }}.apk
 
       # =================================================
-      # Update version tracking files (Mirrored logic)
+      # Update version tracking files (FIXED)
       # =================================================
       - name: Update version files after successful release
         if: success()
@@ -194,5 +194,4 @@ jobs:
           fi
 
           git commit -m "$MSG"
-          git pull --rebase origin main
           git push
