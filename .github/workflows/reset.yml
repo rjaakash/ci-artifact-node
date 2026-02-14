@@ -1,16 +1,10 @@
 name: Repository Hard Cleanup
 
 on:
-  # Manual trigger ONLY
-  # This workflow is intentionally NOT scheduled
-  # Use with caution
   workflow_dispatch:
 
 permissions:
-  # Required to delete releases and tags
   contents: write
-
-  # Required to delete workflow runs
   actions: write
 
 jobs:
@@ -20,19 +14,12 @@ jobs:
     steps:
       # =================================================
       # Checkout repository
-      # (Not strictly required, but keeps repo context
-      #  available if needed)
       # =================================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
       # =================================================
       # HARD release cleanup
-      # ⚠️ DESTRUCTIVE OPERATION
-      #
-      # - Deletes ALL GitHub releases
-      # - Deletes ALL associated Git tags
-      # - Intended for full repository reset
       # =================================================
       - name: Delete all releases and tags
         env:
@@ -47,35 +34,30 @@ jobs:
             done
 
       # =================================================
-      # Reset Morphe version tracking files
-      #
-      # - Sets morphe-cli-version.txt to 0
-      # - Sets morphe-patches-version.txt to 0
+      # Reset version tracking files (UPDATED PATHS)
       # =================================================
-      - name: Reset Morphe version files
+      - name: Reset version files
         run: |
-          echo "0" > morphe-cli-version.txt
-          echo "0" > morphe-patches-version.txt
+          mkdir -p versions
+
+          echo "0" > versions/cli.txt
+          echo "0" > versions/morphe.txt
+          echo "0" > versions/anddea.txt
 
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          git add morphe-cli-version.txt morphe-patches-version.txt
+          git add versions/cli.txt versions/morphe.txt versions/anddea.txt
 
           if git diff --cached --quiet; then
             exit 0
           fi
 
-          git commit -m "chore: hard reset Morphe version tracking"
+          git commit -m "chore: hard reset version tracking"
           git push
 
       # =================================================
       # HARD workflow runs cleanup
-      # ⚠️ DESTRUCTIVE OPERATION
-      #
-      # - Fetches last 300 workflow runs
-      # - Keeps ONLY the most recent run
-      # - Deletes all older runs across all workflows
       # =================================================
       - name: Delete old workflow runs (keep 1)
         env:
