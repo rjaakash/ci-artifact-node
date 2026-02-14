@@ -105,16 +105,16 @@ jobs:
           echo "MUSIC_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Music-${MUSIC_VERSION}/Music-${MUSIC_VERSION}.apk" >> $GITHUB_ENV
 
       # =================================================
-      # Run build script
+      # Run build script (UPDATED PATH ONLY)
       # =================================================
-      - name: Run build-anddea.sh
+      - name: Run build script
         env:
           KEYSTORE_PASSWORD: ${{ secrets.MORPHE_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.MORPHE_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.MORPHE_KEY_PASSWORD }}
         run: |
-          chmod +x build-anddea.sh
-          ./build-anddea.sh
+          chmod +x scripts/anddea.sh
+          ./scripts/anddea.sh
 
       # =================================================
       # Generate release notes
@@ -170,7 +170,7 @@ jobs:
             build/Music-v${{ env.MUSIC_VERSION }}-Anddea-v${{ env.PATCH_VERSION }}.apk
 
       # =================================================
-      # Update version tracking files (FIXED)
+      # Update version tracking files
       # =================================================
       - name: Update version files after successful release
         if: success()
