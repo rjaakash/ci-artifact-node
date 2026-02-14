@@ -29,7 +29,7 @@ jobs:
       # =================================================
       # Restore signing keystore from GitHub Secrets
       # =================================================
-      - name: Restore keystore from GitHub Secrets
+      - name: Restore signing keystore from GitHub Secrets
         run: |
           echo "${{ secrets.MORPHE_KEYSTORE_B64 }}" | base64 -d > morphe-release.bks
           ls -lh morphe-release.bks
@@ -95,7 +95,7 @@ jobs:
           echo "REDDIT_APKM_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Reddit-${REDDIT_VERSION}/Reddit-${REDDIT_VERSION}.apkm" >> $GITHUB_ENV
 
       # =================================================
-      # Run main build script
+      # Run main build script (UPDATED PATH ONLY)
       # =================================================
       - name: Run build script
         env:
@@ -103,8 +103,8 @@ jobs:
           KEY_ALIAS: ${{ secrets.MORPHE_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.MORPHE_KEY_PASSWORD }}
         run: |
-          chmod +x build.sh
-          ./build.sh
+          chmod +x scripts/morphe.sh
+          ./scripts/morphe.sh
 
       # =================================================
       # OPTIONAL: Fetch latest stable MicroG-RE APKs
@@ -207,7 +207,7 @@ jobs:
       # =================================================
       # Update version tracking files after successful release
       # =================================================
-      - name: Update version files after successful release
+      - name: Update version tracking files after successful release
         if: success()
         run: |
           echo "$PATCH_VERSION" > morphe-patches-version.txt
