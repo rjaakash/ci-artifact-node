@@ -32,7 +32,7 @@ jobs:
             | jq -r '[.[] | select(type=="object") | select(.prerelease == false)][0].tag_name // empty' \
             | sed 's/^v//')
 
-          CURRENT=$(cat morphe-patches-version.txt 2>/dev/null || echo "none")
+          CURRENT=$(cat versions/morphe.txt 2>/dev/null || echo "none")
 
           echo "Latest Morphe patch  : [$LATEST]"
           echo "Current Morphe patch : [$CURRENT]"
@@ -83,7 +83,7 @@ jobs:
             end
           ' | sed 's/^v//')
 
-          CURRENT=$(cat anddea-patches-version.txt 2>/dev/null || echo "none")
+          CURRENT=$(cat versions/anddea.txt 2>/dev/null || echo "none")
 
           echo "Latest Anddea patch  : [$LATEST]"
           echo "Current Anddea patch : [$CURRENT]"
