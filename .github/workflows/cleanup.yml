@@ -23,8 +23,6 @@ jobs:
     steps:
       # =================================================
       # Checkout repository
-      # (Not strictly required for cleanup, but harmless
-      #  and useful if repo context is needed later)
       # =================================================
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -32,7 +30,7 @@ jobs:
       # =================================================
       # Release cleanup
       # - Fetches 100 releases
-      # - Keeps latest 7
+      # - Keeps only Morphe + Anddea current versions
       # - Deletes everything else + tags
       # =================================================
       - name: Cleanup old releases
@@ -40,37 +38,43 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          export GH_TOKEN=$GH_TOKEN
 
-          echo "Fetching releases..."
+          MORPHE_VERSION=$(cat versions/morphe.txt 2>/dev/null || echo "none")
+          ANDDEA_VERSION=$(cat versions/anddea.txt 2>/dev/null || echo "none")
 
-          gh release list --limit 100 --json tagName,createdAt \
-            -q '.[] | "\(.tagName)|\(.createdAt)"' \
-            | sort -t'|' -k2 -r > releases.txt
+          KEEP_MORPHE="Morphe-v${MORPHE_VERSION}"
+          KEEP_ANDDEA="Anddea-v${ANDDEA_VERSION}"
 
-          KEEP=$(head -n 7 releases.txt | cut -d'|' -f1)
+          echo "Keeping release tags:"
+          echo "$KEEP_MORPHE"
+          echo "$KEEP_ANDDEA"
 
-          echo "Keeping tags:"
-          echo "$KEEP"
+          echo "Fetching up to 100 releases..."
 
-          cat releases.txt | while IFS='|' read -r TAG DATE; do
-            if ! echo "$KEEP" | grep -qx "$TAG"; then
-              echo "Deleting release + tag: $TAG"
-              gh release delete "$TAG" --yes || true
-              git push origin ":refs/tags/$TAG" || true
-            fi
-          done
+          gh release list --limit 100 --json tagName \
+            -q '.[].tagName' \
+          | while read -r TAG; do
+              if [ "$TAG" != "$KEEP_MORPHE" ] && [ "$TAG" != "$KEEP_ANDDEA" ]; then
+                echo "Deleting release + tag: $TAG"
+                gh release delete "$TAG" --yes || true
+                git push origin ":refs/tags/$TAG" || true
+              else
+                echo "Keeping release: $TAG"
+              fi
+            done
 
       # =================================================
       # Workflow runs cleanup
       # - Fetches up to 300 recent workflow runs
       # - Keeps the latest 100 runs
-      # - Deletes all older runs to save storage
+      # - Deletes all older runs
       # =================================================
       - name: Cleanup old workflow runs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          echo "Fetching up to 300 workflow runs..."
+
           gh run list -L300 --json databaseId \
             -q '.[].databaseId' \
           | tail -n +101 \
