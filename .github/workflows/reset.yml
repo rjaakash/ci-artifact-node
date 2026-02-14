@@ -1,4 +1,4 @@
-name: Repository Hard Cleanup
+name: Reset
 
 on:
   workflow_dispatch:
