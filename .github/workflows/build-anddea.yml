@@ -12,13 +12,13 @@ jobs:
 
     steps:
       # =================================================
-      # Repository checkout
+      # Checkout repository
       # =================================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
       # =================================================
-      # Java setup (required by Morphe CLI & tools)
+      # Java setup
       # =================================================
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -27,7 +27,7 @@ jobs:
           java-version: 17
 
       # =================================================
-      # Restore signing keystore from GitHub Secrets
+      # Restore signing keystore
       # =================================================
       - name: Restore keystore from GitHub Secrets
         run: |
@@ -35,7 +35,7 @@ jobs:
           ls -lh morphe-release.bks
 
       # =================================================
-      # Resolve latest Anddea patch release (stable OR prerelease)
+      # Resolve latest Anddea patch (stable OR prerelease)
       # =================================================
       - name: Resolve Anddea patch version
         run: |
@@ -57,7 +57,7 @@ jobs:
       # =================================================
       # Resolve latest stable Morphe CLI
       # =================================================
-      - name: Resolve Morphe CLI version (stable only)
+      - name: Resolve Morphe CLI version
         run: |
           set -e
 
@@ -66,7 +66,7 @@ jobs:
             | sed 's/^v//')
 
           if [ -z "$CLI_VERSION" ] || [ "$CLI_VERSION" = "null" ]; then
-            echo "Failed to resolve Morphe CLI version"
+            echo "Failed to resolve CLI version"
             exit 1
           fi
 
@@ -75,7 +75,7 @@ jobs:
       # =================================================
       # Resolve supported app versions from Anddea patches
       # =================================================
-      - name: Resolve supported app versions from Anddea patches
+      - name: Resolve supported app versions
         run: |
           set -e
 
@@ -105,7 +105,7 @@ jobs:
           echo "MUSIC_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Music-${MUSIC_VERSION}/Music-${MUSIC_VERSION}.apk" >> $GITHUB_ENV
 
       # =================================================
-      # Run main build script
+      # Run build script
       # =================================================
       - name: Run build-anddea.sh
         env:
@@ -117,7 +117,35 @@ jobs:
           ./build-anddea.sh
 
       # =================================================
-      # Rename APK outputs to versioned filenames
+      # Generate release notes (Mirrored from Morphe)
+      # =================================================
+      - name: Generate release notes
+        run: |
+          PATCH_TAG="v${PATCH_VERSION}"
+
+          CHANGELOG=$(curl -s \
+            https://api.github.com/repos/anddea/revanced-patches/releases/tags/${PATCH_TAG} \
+            | jq -r '.body')
+
+          {
+            echo "## Versions"
+            echo
+            echo "- YouTube: ${YOUTUBE_VERSION}"
+            echo "- Music: ${MUSIC_VERSION}"
+            echo
+            echo "- Anddea Patch: ${PATCH_VERSION}"
+            echo "- Morphe CLI: ${CLI_VERSION}"
+            echo
+            echo "## Anddea Patch Changelog (${PATCH_TAG})"
+            echo
+            echo "${CHANGELOG}"
+          } > release.md
+
+          echo "RELEASE_TAG=Anddea-v${PATCH_VERSION}" >> $GITHUB_ENV
+          echo "RELEASE_NAME=Anddea v${PATCH_VERSION}" >> $GITHUB_ENV
+
+      # =================================================
+      # Rename APK outputs
       # =================================================
       - name: Rename APK assets
         run: |
@@ -125,15 +153,16 @@ jobs:
           mv build/Music-Anddea.apk build/Music-v${MUSIC_VERSION}-Anddea-v${PATCH_VERSION}.apk
 
       # =================================================
-      # Create GitHub release and upload all assets
+      # Create GitHub release
       # =================================================
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         with:
-          tag_name: Anddea-v${{ env.PATCH_VERSION }}
-          name: Anddea v${{ env.PATCH_VERSION }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_NAME }}
+          body_path: release.md
           prerelease: ${{ env.IS_PRERELEASE }}
           fail_on_unmatched_files: false
           files: |
@@ -141,7 +170,7 @@ jobs:
             build/Music-v${{ env.MUSIC_VERSION }}-Anddea-v${{ env.PATCH_VERSION }}.apk
 
       # =================================================
-      # Update version tracking files after successful release
+      # Update version tracking files (Mirrored logic)
       # =================================================
       - name: Update version files after successful release
         if: success()
