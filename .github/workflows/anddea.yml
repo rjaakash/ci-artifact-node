@@ -73,7 +73,7 @@ jobs:
           echo "CLI_VERSION=$CLI_VERSION" >> $GITHUB_ENV
 
       # =================================================
-      # Resolve supported app versions
+      # Resolve supported app versions (INTERSECTION LOGIC)
       # =================================================
       - name: Resolve supported app versions
         run: |
@@ -81,20 +81,46 @@ jobs:
 
           JSON=$(curl -s https://raw.githubusercontent.com/anddea/revanced-patches/dev/patches-list.json)
 
-          YT_VERSION=$(echo "$JSON" | jq -r '
+          SUPPORTED_YT=$(echo "$JSON" | jq -r '
             .patches[]
             | .compatiblePackages["com.google.android.youtube"]? // empty
             | .[]
-          ' | sort -V | tail -n 1)
+          ' | sort -u)
 
-          MUSIC_VERSION=$(echo "$JSON" | jq -r '
+          SUPPORTED_MUSIC=$(echo "$JSON" | jq -r '
             .patches[]
             | .compatiblePackages["com.google.android.apps.youtube.music"]? // empty
             | .[]
-          ' | sort -V | tail -n 1)
+          ' | sort -u)
+
+          INDEX_JSON=$(curl -s https://api.github.com/repos/rjaakash/ci-artifact-index/releases?per_page=100)
+
+          AVAILABLE_YT=$(echo "$INDEX_JSON" | jq -r '
+            .[]
+            | select(.tag_name | startswith("YouTube-"))
+            | .tag_name
+            | sub("^YouTube-"; "")
+          ' | sort -u)
+
+          AVAILABLE_MUSIC=$(echo "$INDEX_JSON" | jq -r '
+            .[]
+            | select(.tag_name | startswith("Music-"))
+            | .tag_name
+            | sub("^Music-"; "")
+          ' | sort -u)
+
+          YT_VERSION=$(comm -12 \
+            <(echo "$SUPPORTED_YT" | sort -V) \
+            <(echo "$AVAILABLE_YT" | sort -V) \
+          | sort -V | tail -n 1)
+
+          MUSIC_VERSION=$(comm -12 \
+            <(echo "$SUPPORTED_MUSIC" | sort -V) \
+            <(echo "$AVAILABLE_MUSIC" | sort -V) \
+          | sort -V | tail -n 1)
 
           if [ -z "$YT_VERSION" ] || [ -z "$MUSIC_VERSION" ]; then
-            echo "Failed to resolve compatible versions"
+            echo "No compatible version found between patches and index repo"
             exit 1
           fi
 
