@@ -61,28 +61,66 @@ jobs:
         run: |
           set -e
 
-          JSON=$(curl -s https://raw.githubusercontent.com/MorpheApp/morphe-patches/main/patches-list.json)
+          PATCH_JSON=$(curl -s https://raw.githubusercontent.com/MorpheApp/morphe-patches/main/patches-list.json)
 
-          YT_VERSION=$(echo "$JSON" | jq -r '
+          SUPPORTED_YT=$(echo "$PATCH_JSON" | jq -r '
             .patches[]
             | .compatiblePackages["com.google.android.youtube"]? // empty
             | .[]
-          ' | sort -V | tail -n 1)
+          ' | sort -u)
 
-          MUSIC_VERSION=$(echo "$JSON" | jq -r '
+          SUPPORTED_MUSIC=$(echo "$PATCH_JSON" | jq -r '
             .patches[]
             | .compatiblePackages["com.google.android.apps.youtube.music"]? // empty
             | .[]
-          ' | sort -V | tail -n 1)
+          ' | sort -u)
 
-          REDDIT_VERSION=$(echo "$JSON" | jq -r '
+          SUPPORTED_REDDIT=$(echo "$PATCH_JSON" | jq -r '
             .patches[]
             | .compatiblePackages["com.reddit.frontpage"]? // empty
             | .[]
-          ' | sort -V | tail -n 1)
+          ' | sort -u)
+
+          INDEX_JSON=$(curl -s https://api.github.com/repos/rjaakash/ci-artifact-index/releases?per_page=100)
+
+          AVAILABLE_YT=$(echo "$INDEX_JSON" | jq -r '
+            .[]
+            | select(.tag_name | startswith("YouTube-"))
+            | .tag_name
+            | sub("^YouTube-"; "")
+          ' | sort -u)
+
+          AVAILABLE_MUSIC=$(echo "$INDEX_JSON" | jq -r '
+            .[]
+            | select(.tag_name | startswith("Music-"))
+            | .tag_name
+            | sub("^Music-"; "")
+          ' | sort -u)
+
+          AVAILABLE_REDDIT=$(echo "$INDEX_JSON" | jq -r '
+            .[]
+            | select(.tag_name | startswith("Reddit-"))
+            | .tag_name
+            | sub("^Reddit-"; "")
+          ' | sort -u)
+
+          YT_VERSION=$(comm -12 \
+            <(echo "$SUPPORTED_YT" | sort -V) \
+            <(echo "$AVAILABLE_YT" | sort -V) \
+          | sort -V | tail -n 1)
+
+          MUSIC_VERSION=$(comm -12 \
+            <(echo "$SUPPORTED_MUSIC" | sort -V) \
+            <(echo "$AVAILABLE_MUSIC" | sort -V) \
+          | sort -V | tail -n 1)
+
+          REDDIT_VERSION=$(comm -12 \
+            <(echo "$SUPPORTED_REDDIT" | sort -V) \
+            <(echo "$AVAILABLE_REDDIT" | sort -V) \
+          | sort -V | tail -n 1)
 
           if [ -z "$YT_VERSION" ] || [ -z "$MUSIC_VERSION" ] || [ -z "$REDDIT_VERSION" ]; then
-            echo "Failed to resolve compatible versions"
+            echo "No compatible version found between patches and index repo"
             exit 1
           fi
 
