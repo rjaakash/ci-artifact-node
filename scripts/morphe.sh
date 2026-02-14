@@ -15,7 +15,7 @@ echo "[+] Starting Morphe build"
 # =================================================
 YOUTUBE_VERSION="${YOUTUBE_VERSION:?YOUTUBE_VERSION not set}"
 MUSIC_VERSION="${MUSIC_VERSION:?MUSIC_VERSION not set}"
-REDDIT_VERSION="${REDDIT_VERSION:?REDDIT_VERSION not set}"
+REDDIT_VERSION="${REDDIT_VERSION:-}"
 
 echo "YouTube version: $YOUTUBE_VERSION"
 echo "Music version: $MUSIC_VERSION"
@@ -32,7 +32,7 @@ echo "Reddit version: $REDDIT_VERSION"
 # =================================================
 PATCH_VERSION="${PATCH_VERSION:?PATCH_VERSION not set}"
 CLI_VERSION="${CLI_VERSION:?CLI_VERSION not set}"
-APKEDITOR_URL="${APKEDITOR_URL:?APKEDITOR_URL not set}"
+APKEDITOR_URL="${APKEDITOR_URL:-}"
 
 echo "Morphe patch version: $PATCH_VERSION"
 echo "Morphe CLI version: $CLI_VERSION"
@@ -45,7 +45,7 @@ echo "Morphe CLI version: $CLI_VERSION"
 # =================================================
 YOUTUBE_APK_URL="${YOUTUBE_APK_URL:?YOUTUBE_APK_URL not set}"
 MUSIC_APK_URL="${MUSIC_APK_URL:?MUSIC_APK_URL not set}"
-REDDIT_APKM_URL="${REDDIT_APKM_URL:?REDDIT_APKM_URL not set}"
+REDDIT_APKM_URL="${REDDIT_APKM_URL:-}"
 
 # =================================================
 # Morphe tooling download URLs
@@ -90,11 +90,20 @@ download_apk "$MUSIC_APK_URL" temp/music.apk
 # =================================================
 # Download REQUIRED build tools
 # -------------------------------------------------
-# Morphe CLI, patches, and APKEditor are mandatory.
+# Morphe CLI and patches are mandatory.
+# APKEditor is optional (used only for Reddit).
 # =================================================
 curl -L --fail "$CLI_URL" -o tools/morphe-cli.jar
 curl -L --fail "$PATCHES_URL" -o patches/patches.mpp
-curl -L --fail "$APKEDITOR_URL" -o tools/apkeditor.jar
+
+if [ -n "$APKEDITOR_URL" ]; then
+  set +e
+  curl -L --fail "$APKEDITOR_URL" -o tools/apkeditor.jar
+  APKEDITOR_OK=$?
+  set -e
+else
+  APKEDITOR_OK=1
+fi
 
 # =================================================
 # OPTIONAL: Reddit build pipeline
@@ -102,35 +111,37 @@ curl -L --fail "$APKEDITOR_URL" -o tools/apkeditor.jar
 # Reddit is bundled as APKM and may fail.
 # Failure here MUST NOT stop YouTube/Music builds.
 # =================================================
-set +e
-echo "[+] Processing Reddit (optional)"
+if [ -n "$REDDIT_APKM_URL" ] && [ "$APKEDITOR_OK" -eq 0 ]; then
+  set +e
+  echo "[+] Processing Reddit (optional)"
 
-curl -L --fail --retry 3 "$REDDIT_APKM_URL" -o temp/reddit.apkm
-REDDIT_OK=$?
+  curl -L --fail --retry 3 "$REDDIT_APKM_URL" -o temp/reddit.apkm
+  REDDIT_OK=$?
 
-if [ $REDDIT_OK -eq 0 ]; then
-  java -jar tools/apkeditor.jar m \
-    -f \
-    -i temp/reddit.apkm \
-    -o temp/reddit.apk
+  if [ $REDDIT_OK -eq 0 ]; then
+    java -jar tools/apkeditor.jar m \
+      -f \
+      -i temp/reddit.apkm \
+      -o temp/reddit.apk
 
-  if [ $? -eq 0 ]; then
-    java -jar tools/morphe-cli.jar patch \
-      --keystore morphe-release.bks \
-      --keystore-password "$KEYSTORE_PASSWORD" \
-      --keystore-entry-alias "$KEY_ALIAS" \
-      --keystore-entry-password "$KEY_PASSWORD" \
-      -p patches/patches.mpp \
-      -o build/Reddit-Morphe.apk \
-      --purge \
-      temp/reddit.apk
+    if [ $? -eq 0 ]; then
+      java -jar tools/morphe-cli.jar patch \
+        --keystore morphe-release.bks \
+        --keystore-password "$KEYSTORE_PASSWORD" \
+        --keystore-entry-alias "$KEY_ALIAS" \
+        --keystore-entry-password "$KEY_PASSWORD" \
+        -p patches/patches.mpp \
+        -o build/Reddit-Morphe.apk \
+        --purge \
+        temp/reddit.apk
+    else
+      echo "Reddit merge failed, skipping patch"
+    fi
   else
-    echo "Reddit merge failed, skipping patch"
+    echo "Reddit download failed, skipping Reddit build"
   fi
-else
-  echo "Reddit download failed, skipping Reddit build"
+  set -e
 fi
-set -e
 
 # =================================================
 # Patch YouTube (CRITICAL)
