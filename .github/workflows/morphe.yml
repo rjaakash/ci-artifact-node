@@ -210,13 +210,13 @@ jobs:
       - name: Update version tracking files after successful release
         if: success()
         run: |
-          echo "$PATCH_VERSION" > morphe-patches-version.txt
-          echo "$CLI_VERSION" > morphe-cli-version.txt
+          echo "$PATCH_VERSION" > versions/morphe.txt
+          echo "$CLI_VERSION" > versions/cli.txt
 
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          git add morphe-patches-version.txt morphe-cli-version.txt
+          git add versions/morphe.txt versions/cli.txt
 
           if git diff --cached --quiet; then
             exit 0
@@ -224,7 +224,7 @@ jobs:
 
           MSG="chore: update Morphe patch to ${PATCH_VERSION}"
 
-          if git diff --cached morphe-cli-version.txt | grep -q .; then
+          if git diff --cached versions/cli.txt | grep -q .; then
             MSG="$MSG, CLI to ${CLI_VERSION}"
           fi
 
