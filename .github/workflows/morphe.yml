@@ -125,7 +125,6 @@ jobs:
             <(echo "$AVAILABLE_REDDIT" | sort -V) \
           | sort -V | tail -n 1)
 
-          # Only YouTube and Music are mandatory
           if [ -z "$YT_VERSION" ] || [ -z "$MUSIC_VERSION" ]; then
             echo "No compatible version found for YouTube or Music"
             exit 1
@@ -137,7 +136,6 @@ jobs:
           echo "YOUTUBE_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/YouTube-${YT_VERSION}/YouTube-${YT_VERSION}.apk" >> $GITHUB_ENV
           echo "MUSIC_APK_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Music-${MUSIC_VERSION}/Music-${MUSIC_VERSION}.apk" >> $GITHUB_ENV
 
-          # Reddit is optional
           if [ -n "$REDDIT_VERSION" ]; then
             echo "REDDIT_VERSION=$REDDIT_VERSION" >> $GITHUB_ENV
             echo "REDDIT_APKM_URL=https://github.com/rjaakash/ci-artifact-index/releases/download/Reddit-${REDDIT_VERSION}/Reddit-${REDDIT_VERSION}.apkm" >> $GITHUB_ENV
@@ -230,11 +228,11 @@ jobs:
       # =================================================
       - name: Rename APK assets
         run: |
-          mv build/YouTube-Morphe.apk build/YouTube-v${YOUTUBE_VERSION}-v${PATCH_VERSION}.apk
-          mv build/Music-Morphe.apk build/Music-v${MUSIC_VERSION}-v${PATCH_VERSION}.apk
+          mv build/YouTube-Morphe.apk build/YouTube-v${YOUTUBE_VERSION}-Morphe-v${PATCH_VERSION}.apk
+          mv build/Music-Morphe.apk build/Music-v${MUSIC_VERSION}-Morphe-v${PATCH_VERSION}.apk
 
           if [ -f build/Reddit-Morphe.apk ]; then
-            mv build/Reddit-Morphe.apk build/Reddit-v${REDDIT_VERSION}-v${PATCH_VERSION}.apk
+            mv build/Reddit-Morphe.apk build/Reddit-v${REDDIT_VERSION}-Morphe-v${PATCH_VERSION}.apk
           fi
 
       # =================================================
@@ -250,9 +248,9 @@ jobs:
           body_path: release.md
           fail_on_unmatched_files: false
           files: |
-            build/YouTube-v${{ env.YOUTUBE_VERSION }}-v${{ env.PATCH_VERSION }}.apk
-            build/Music-v${{ env.MUSIC_VERSION }}-v${{ env.PATCH_VERSION }}.apk
-            build/Reddit-v${{ env.REDDIT_VERSION }}-v${{ env.PATCH_VERSION }}.apk
+            build/YouTube-v${{ env.YOUTUBE_VERSION }}-Morphe-v${{ env.PATCH_VERSION }}.apk
+            build/Music-v${{ env.MUSIC_VERSION }}-Morphe-v${{ env.PATCH_VERSION }}.apk
+            build/Reddit-v${{ env.REDDIT_VERSION }}-Morphe-v${{ env.PATCH_VERSION }}.apk
             build/microg/*.apk
 
       # =================================================
